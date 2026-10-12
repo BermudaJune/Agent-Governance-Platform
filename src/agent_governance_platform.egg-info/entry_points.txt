@@ -1,0 +1,2 @@
+[console_scripts]
+agentgov = agentgov.cli:app

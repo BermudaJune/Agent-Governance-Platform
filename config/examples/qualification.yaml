@@ -1,0 +1,80 @@
+environment: qualification
+providers:
+  - name: scripted-governance
+    protocol: scripted
+    script: qualification
+    models:
+      - name: scripted-governance-model
+        input_price_per_1k: 0.0
+        output_price_per_1k: 0.0
+
+sandboxes:
+  - id: readonly
+    runtime: local_readonly
+    filesystem: read_only
+    network: disabled
+    allowed_commands: ["rg", "python"]
+    root: "."
+
+policies:
+  - id: max_cost_per_run
+    type: budget
+    max_usd: 1.0
+  - id: require_approval_for_write
+    type: hitl
+    when:
+      sandbox_filesystem: write
+
+permissions:
+  roles:
+    admin:
+      allow: ["*"]
+    operator:
+      allow: ["run.create", "run.cancel", "approval.decide", "agent.view", "run.view", "audit.view"]
+    auditor:
+      allow: ["agent.view", "run.view", "audit.view", "policy.view"]
+  delegation:
+    coordinator:
+      can_delegate_to: ["evidence", "execution", "policy_auditor", "reviewer"]
+      allowed_actions: ["tool.call", "sandbox.execute.readonly", "report.review"]
+
+agents:
+  - id: coordinator
+    name: Coordinator Agent
+    provider: scripted-governance
+    model: scripted-governance-model
+    policies: ["max_cost_per_run"]
+  - id: evidence
+    name: Evidence Agent
+    provider: scripted-governance
+    model: scripted-governance-model
+    tools: ["repo_search", "repo_read", "repo_list"]
+    sandbox: readonly
+    policies: ["max_cost_per_run"]
+  - id: execution
+    name: Execution Agent
+    provider: scripted-governance
+    model: scripted-governance-model
+    tools: ["local_command"]
+    sandbox: readonly
+    policies: ["max_cost_per_run", "require_approval_for_write"]
+  - id: policy_auditor
+    name: Policy Auditor Agent
+    provider: scripted-governance
+    model: scripted-governance-model
+    policies: ["max_cost_per_run"]
+  - id: reviewer
+    name: Reviewer Agent
+    provider: scripted-governance
+    model: scripted-governance-model
+    policies: ["max_cost_per_run"]
+
+teams:
+  - id: governance_review_team
+    leader: coordinator
+    members: ["evidence", "execution", "policy_auditor", "reviewer"]
+    collaboration_strategy: leader_worker
+
+qualification:
+  repo_path: "."
+  question: "Analyze this repository governance path and produce a traceable report."

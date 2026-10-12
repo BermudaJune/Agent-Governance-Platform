@@ -1,0 +1,403 @@
+environment: local
+providers:
+- name: xingwan-gpt
+  protocol: openai
+  base_url: https://xingwan.store/v1
+  api_key: sk-JWsps7UnnnjrZuzudBdCCiw3utvoQBcfSWtpZr1CoOWPl1cv
+  api_key_env: XINGWAN_API_KEY
+  model: null
+  models:
+  - name: gpt-5.5
+    input_price_per_1k: 0.0
+    output_price_per_1k: 0.0
+  script: null
+mcp_servers:
+- name: context7
+  command: npx
+  args:
+  - -y
+  - '@upstash/context7-mcp'
+sandboxes:
+- id: readonly
+  runtime: local_readonly
+  filesystem: read_only
+  network: disabled
+  allowed_commands:
+  - rg
+  - python
+  root: .
+  timeout_seconds: 20
+- id: session_workspace
+  runtime: local_workspace
+  filesystem: session_write
+  network: disabled
+  allowed_commands:
+  - rg
+  - python
+  root: .
+  timeout_seconds: 20
+policies:
+- id: max_cost_per_run
+  type: budget
+  max_usd: 1.0
+  when: {}
+- id: require_approval_for_external_write
+  type: hitl
+  max_usd: null
+  when:
+    path_scope: outside_session_workspace
+capabilities:
+- id: coordination.plan
+  name: 任务规划
+  description: 把用户任务拆成可审计的子任务。
+  category: coordination
+  input_schema: {}
+  output_schema: {}
+  risk_level: low
+  required_tools: []
+  optional_tools: []
+  required_permissions: []
+  sandbox: null
+  requires_approval: false
+  suitable_roles:
+  - coordinator
+- id: coordination.delegate
+  name: 任务委托
+  description: 给其他 Agent 分派任务并汇总结果。
+  category: coordination
+  input_schema: {}
+  output_schema: {}
+  risk_level: low
+  required_tools: []
+  optional_tools: []
+  required_permissions: []
+  sandbox: null
+  requires_approval: false
+  suitable_roles:
+  - coordinator
+- id: text.create
+  name: 文本创作
+  description: 创作故事、诗歌、报告等文本产物。
+  category: write
+  input_schema: {}
+  output_schema: {}
+  risk_level: low
+  required_tools: []
+  optional_tools: []
+  required_permissions: []
+  sandbox: null
+  requires_approval: false
+  suitable_roles:
+  - writer
+- id: review.content
+  name: 内容评审
+  description: 评审生成内容或报告。
+  category: review
+  input_schema: {}
+  output_schema: {}
+  risk_level: low
+  required_tools: []
+  optional_tools: []
+  required_permissions: []
+  sandbox: null
+  requires_approval: false
+  suitable_roles:
+  - reviewer
+- id: review.policy
+  name: 策略评审
+  description: 检查权限、预算、HITL 和审计链路。
+  category: review
+  input_schema: {}
+  output_schema: {}
+  risk_level: low
+  required_tools: []
+  optional_tools: []
+  required_permissions: []
+  sandbox: null
+  requires_approval: false
+  suitable_roles:
+  - auditor
+- id: external.weather
+  name: 天气查询
+  description: 查询外部天气信息。
+  category: network
+  input_schema: {}
+  output_schema: {}
+  risk_level: low
+  required_tools:
+  - weather_lookup
+  optional_tools: []
+  required_permissions: []
+  sandbox: null
+  requires_approval: false
+  suitable_roles:
+  - researcher
+  - writer
+tools:
+- id: weather_lookup
+  name: 天气查询
+  description: 查询指定城市当前天气，返回温度、湿度、风速和天气描述。
+  category: network
+  executor: weather_lookup
+  input_schema:
+    type: object
+    properties:
+      location:
+        type: string
+        description: 城市或地区，例如 Beijing、Shanghai
+    required:
+    - location
+  output_schema: {}
+  risk_level: low
+  sandbox: null
+  requires_approval: false
+  is_concurrency_safe: true
+  should_defer: false
+  allowed_domains:
+  - wttr.in
+  allowed_paths: []
+  config: {}
+skills:
+- id: writing.basic
+  name: 基础写作
+  description: 生成短文本产物。
+  prompt_body: ''
+  recommended_tools:
+  - file_write
+  output_artifacts:
+  - markdown
+  capability_ids:
+  - text.create
+  - file.write
+  risk_level: low
+- id: review.basic
+  name: 基础评审
+  description: 读取并评审文本产物。
+  prompt_body: ''
+  recommended_tools:
+  - file_read
+  - file_write
+  output_artifacts:
+  - markdown
+  capability_ids:
+  - file.read
+  - review.content
+  - file.write
+  risk_level: low
+- id: repo.research
+  name: 仓库研究
+  description: 检索仓库文件并产出证据。
+  prompt_body: ''
+  recommended_tools:
+  - repo_list
+  - repo_search
+  - repo_read
+  output_artifacts: []
+  capability_ids:
+  - repo.list
+  - repo.search
+  - repo.read
+  risk_level: low
+permissions:
+  roles:
+    admin:
+      allow:
+      - '*'
+    operator:
+      allow:
+      - run.create
+      - run.cancel
+      - approval.decide
+      - agent.view
+      - run.view
+      - audit.view
+    auditor:
+      allow:
+      - agent.view
+      - run.view
+      - audit.view
+      - policy.view
+  delegation:
+    coordinator:
+      can_delegate_to:
+      - evidence
+      - execution
+      - policy_auditor
+      - reviewer
+      - story_writer
+      - story_reviewer
+      - weather_agent
+      allowed_actions:
+      - tool.call
+      - sandbox.execute.readonly
+      - file.write.workspace
+      - report.review
+agents:
+- id: coordinator
+  name: 协调 Agent
+  provider: xingwan-gpt
+  model: gpt-5.5
+  tools: []
+  skills: []
+  capabilities:
+  - coordination.plan
+  - coordination.delegate
+  sandbox: null
+  policies:
+  - max_cost_per_run
+  system_prompt: 负责拆分任务、委托专家 Agent，并汇总可审计结果。
+  metadata: {}
+- id: evidence
+  name: 证据 Agent
+  provider: xingwan-gpt
+  model: gpt-5.5
+  tools:
+  - repo_search
+  - repo_read
+  - repo_list
+  skills:
+  - repo.research
+  capabilities: []
+  sandbox: readonly
+  policies:
+  - max_cost_per_run
+  system_prompt: 负责读取仓库和收集证据，不直接修改文件。
+  metadata: {}
+- id: execution
+  name: 执行 Agent
+  provider: xingwan-gpt
+  model: gpt-5.5
+  tools:
+  - local_command
+  skills: []
+  capabilities: []
+  sandbox: readonly
+  policies:
+  - max_cost_per_run
+  system_prompt: 负责在沙箱中执行只读检查命令，并返回可复核输出。
+  metadata: {}
+- id: policy_auditor
+  name: 策略审计 Agent
+  provider: xingwan-gpt
+  model: gpt-5.5
+  tools: []
+  skills: []
+  capabilities:
+  - review.policy
+  sandbox: null
+  policies:
+  - max_cost_per_run
+  system_prompt: 负责检查策略、权限、预算和审计链路是否完整。
+  metadata: {}
+- id: reviewer
+  name: 评审 Agent
+  provider: xingwan-gpt
+  model: gpt-5.5
+  tools: []
+  skills: []
+  capabilities:
+  - review.content
+  sandbox: null
+  policies:
+  - max_cost_per_run
+  system_prompt: 负责评审最终报告和证据链是否一致。
+  metadata: {}
+- id: story_writer
+  name: 故事写作 Agent
+  provider: xingwan-gpt
+  model: gpt-5.5
+  tools:
+  - file_write
+  skills: []
+  capabilities: []
+  sandbox: session_workspace
+  policies:
+  - max_cost_per_run
+  - require_approval_for_external_write
+  system_prompt: 负责生成短篇故事、诗歌或报告，并把产物写入当前 Session 工作区。
+  metadata: {}
+- id: story_reviewer
+  name: 故事评价 Agent
+  provider: xingwan-gpt
+  model: gpt-5.5
+  tools:
+  - file_read
+  - file_write
+  skills:
+  - review.basic
+  capabilities:
+  - review.content
+  sandbox: session_workspace
+  policies:
+  - max_cost_per_run
+  - require_approval_for_external_write
+  system_prompt: 负责读取故事产物，生成评价并写入当前 Session 工作区。
+  metadata: {}
+- id: weather_agent
+  name: 天气查询 Agent
+  provider: xingwan-gpt
+  model: gpt-5.5
+  tools:
+  - weather_lookup
+  skills: []
+  capabilities:
+  - external.weather
+  sandbox: null
+  policies:
+  - max_cost_per_run
+  system_prompt: 负责查询天气，并把天气结果整理成可供其他 Agent 使用的事实摘要。
+  metadata: {}
+teams:
+- id: governance_review_team
+  leader: coordinator
+  members:
+  - evidence
+  - execution
+  - policy_auditor
+  - reviewer
+  collaboration_strategy: leader_worker
+  capabilities:
+  - coordination.plan
+  - coordination.delegate
+  - repo.search
+  - repo.read
+  - command.local_readonly
+  - review.policy
+  - review.content
+  description: Agent 治理评审团队
+  version: 1
+- id: story_team
+  leader: story_writer
+  members:
+  - story_writer
+  - story_reviewer
+  collaboration_strategy: sequential_artifact_review
+  capabilities:
+  - text.create
+  - external.weather
+  - file.write
+  - file.read
+  - review.content
+  description: 写作与评审团队
+  version: 1
+storage:
+  relational:
+    backend: sqlite
+    url: sqlite:///./data/agentgov.db
+  event_bus:
+    backend: memory
+  cache:
+    backend: db
+  object_store:
+    backend: local
+    root: ./data/objects
+  vector_store:
+    backend: sqlite_fts
+budgets:
+  global:
+    max_usd_per_day: 10
+  teams:
+    governance_review_team:
+      max_usd_per_day: 2
+    story_team:
+      max_usd_per_day: 1

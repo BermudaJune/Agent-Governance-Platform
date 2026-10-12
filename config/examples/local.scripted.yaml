@@ -1,0 +1,161 @@
+environment: test
+providers:
+  - name: scripted-governance
+    protocol: scripted
+    script: default
+    models:
+      - name: scripted-governance-model
+        input_price_per_1k: 0.0
+        output_price_per_1k: 0.0
+
+sandboxes:
+  - id: readonly
+    runtime: local_readonly
+    filesystem: read_only
+    network: disabled
+    allowed_commands: ["rg", "python"]
+    root: "."
+  - id: session_workspace
+    runtime: local_workspace
+    filesystem: session_write
+    network: disabled
+    allowed_commands: ["rg", "python"]
+    root: "."
+
+policies:
+  - id: max_cost_per_run
+    type: budget
+    max_usd: 1.0
+  - id: require_approval_for_write
+    type: hitl
+    when:
+      tool: file_write
+
+capabilities:
+  - id: coordination.plan
+    name: Task Planning
+    description: Break a user task into auditable sub tasks.
+    category: coordination
+    suitable_roles: ["coordinator"]
+  - id: coordination.delegate
+    name: Task Delegation
+    description: Assign work to other agents and collect results.
+    category: coordination
+    suitable_roles: ["coordinator"]
+  - id: text.create
+    name: Text Creation
+    description: Create prose, poems, reports or other text artifacts.
+    category: write
+    suitable_roles: ["writer"]
+  - id: review.content
+    name: Content Review
+    description: Review generated content or reports.
+    category: review
+    suitable_roles: ["reviewer"]
+  - id: review.policy
+    name: Policy Review
+    description: Review permission, budget, HITL and audit concerns.
+    category: review
+    suitable_roles: ["auditor"]
+  - id: external.weather
+    name: Weather Lookup
+    description: Query weather from an external provider.
+    category: network
+    risk_level: medium
+    suitable_roles: ["researcher"]
+
+skills:
+  - id: writing.basic
+    name: Basic Writing
+    description: Create short text artifacts.
+    recommended_tools: ["file_write"]
+    output_artifacts: ["markdown"]
+    capability_ids: ["text.create", "file.write"]
+  - id: review.basic
+    name: Basic Review
+    description: Read and review text artifacts.
+    recommended_tools: ["file_read", "file_write"]
+    output_artifacts: ["markdown"]
+    capability_ids: ["file.read", "review.content", "file.write"]
+  - id: repo.research
+    name: Repository Research
+    description: Inspect repository files and produce evidence.
+    recommended_tools: ["repo_list", "repo_search", "repo_read"]
+    capability_ids: ["repo.list", "repo.search", "repo.read"]
+
+permissions:
+  roles:
+    admin:
+      allow: ["*"]
+    operator:
+      allow: ["run.create", "run.cancel", "approval.decide", "agent.view", "run.view", "audit.view"]
+    auditor:
+      allow: ["agent.view", "run.view", "audit.view", "policy.view"]
+  delegation:
+    coordinator:
+      can_delegate_to: ["evidence", "execution", "policy_auditor", "reviewer"]
+      allowed_actions: ["tool.call", "sandbox.execute.readonly", "report.review"]
+
+agents:
+  - id: coordinator
+    name: Coordinator Agent
+    provider: scripted-governance
+    model: scripted-governance-model
+    capabilities: ["coordination.plan", "coordination.delegate"]
+    policies: ["max_cost_per_run"]
+  - id: evidence
+    name: Evidence Agent
+    provider: scripted-governance
+    model: scripted-governance-model
+    tools: ["repo_search", "repo_read", "repo_list"]
+    skills: ["repo.research"]
+    sandbox: readonly
+    policies: ["max_cost_per_run"]
+  - id: execution
+    name: Execution Agent
+    provider: scripted-governance
+    model: scripted-governance-model
+    tools: ["local_command"]
+    sandbox: readonly
+    policies: ["max_cost_per_run", "require_approval_for_write"]
+  - id: policy_auditor
+    name: Policy Auditor Agent
+    provider: scripted-governance
+    model: scripted-governance-model
+    capabilities: ["review.policy"]
+    policies: ["max_cost_per_run"]
+  - id: reviewer
+    name: Reviewer Agent
+    provider: scripted-governance
+    model: scripted-governance-model
+    capabilities: ["review.content"]
+    policies: ["max_cost_per_run"]
+  - id: story_writer
+    name: Story Writer Agent
+    provider: scripted-governance
+    model: scripted-governance-model
+    tools: ["file_write"]
+    skills: ["writing.basic"]
+    capabilities: ["coordination.plan", "coordination.delegate"]
+    sandbox: session_workspace
+    policies: ["max_cost_per_run", "require_approval_for_write"]
+  - id: story_reviewer
+    name: Story Reviewer Agent
+    provider: scripted-governance
+    model: scripted-governance-model
+    tools: ["file_read", "file_write"]
+    skills: ["review.basic"]
+    sandbox: session_workspace
+    policies: ["max_cost_per_run", "require_approval_for_write"]
+
+teams:
+  - id: governance_review_team
+    leader: coordinator
+    members: ["evidence", "execution", "policy_auditor", "reviewer"]
+    collaboration_strategy: leader_worker
+    capabilities: ["coordination.plan", "coordination.delegate", "repo.search", "repo.read", "command.local_readonly", "review.policy", "review.content"]
+  - id: story_team
+    leader: story_writer
+    members: ["story_writer", "story_reviewer"]
+    collaboration_strategy: sequential_artifact_review
+    capabilities: ["coordination.plan", "coordination.delegate", "text.create", "file.write", "file.read", "review.content"]
