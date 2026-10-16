@@ -31,6 +31,7 @@ export type Agent = {
 };
 
 export type Run = {
+  run_type?: string;
   id: string;
   session_id: string;
   parent_run_id?: string | null;
@@ -43,6 +44,7 @@ export type Run = {
 };
 
 export type Session = {
+  metadata?: Record<string, unknown>;
   id: string;
   title: string;
   owner_id: string;
@@ -73,6 +75,7 @@ export type Approval = {
   requested_by: string;
   approver_id?: string | null;
   reason?: string | null;
+  action_summary?: Record<string, unknown>;
   created_at: string;
 };
 

@@ -30,11 +30,17 @@ class ToolGateway:
                 self.registry.register(spec)
         self.allowed_tools_by_agent = allowed_tools_by_agent
 
-    def schemas_for_agent(self, agent_id: str) -> list[dict[str, Any]]:
+    def schemas_for_agent(self, agent_id: str, session_id: str | None = None) -> list[dict[str, Any]]:
         allowed = self._allowed_tools()
-        if allowed is None:
-            return [spec.openai_tool() for spec in self.registry.list_specs()]
-        return self.registry.schemas_for_tools(allowed.get(agent_id, []))
+        allowed_ids = list(allowed.get(agent_id, [])) if allowed is not None else [spec.id for spec in self.registry.list_specs()]
+        if session_id:
+            grants = self.repo.query_all(
+                "session_tool_grants",
+                "WHERE session_id = ? AND agent_id = ? AND status = 'active'",
+                (session_id, agent_id),
+            )
+            allowed_ids.extend(str(grant["tool_id"]) for grant in grants)
+        return self.registry.schemas_for_tools(list(dict.fromkeys(allowed_ids)))
 
     def call(self, run_id: str, session_id: str, agent_id: str, tool_name: str, args: dict) -> dict:
         args = dict(args or {})
@@ -70,7 +76,7 @@ class ToolGateway:
             },
         )
 
-        decision = self._preflight(agent_id, tool_name, args)
+        decision = self._preflight(run_id, session_id, agent_id, tool_name, args)
         decision_step = self.events.append(
             run_id,
             session_id,
@@ -193,28 +199,48 @@ class ToolGateway:
             status,
             {"action_id": action_id, "observation_id": observation_id, "summary": self._summarize_observation(tool_name, result)},
         )
-        if tool_name in {"file_write", "file_read"} and result.get("path"):
+        artifact_path = result.get("path")
+        artifact_type = result.get("artifact_type")
+        if artifact_path and (tool_name in {"file_write", "file_read"} or artifact_type):
             self.repo.insert_generic(
                 "evidence_refs",
                 {
-                    "ref_type": "artifact" if tool_name == "file_write" else "file",
-                    "ref_id": result["path"],
+                    "ref_type": "artifact" if tool_name == "file_write" or artifact_type else "file",
+                    "ref_id": artifact_path,
                     "run_id": run_id,
                     "step_id": step.id,
-                    "path": result["path"],
-                    "summary": f"{agent_id} {tool_name} {result.get('relative_path')}",
+                    "path": artifact_path,
+                    "summary": f"{agent_id} {tool_name} {result.get('relative_path') or artifact_path}",
                 },
             )
-            if tool_name == "file_write" and status in {"completed", "ok"}:
-                self.repo.insert_artifact(
+            if (tool_name == "file_write" or artifact_type) and status in {"completed", "ok"}:
+                artifact_id = self.repo.insert_artifact(
                     {
                         "session_id": session_id,
                         "run_id": run_id,
                         "created_by_agent_id": agent_id,
-                        "artifact_type": "file",
-                        "path": result["path"],
-                        "summary": f"{agent_id} wrote {result.get('relative_path') or result['path']}",
-                        "metadata": {"tool": tool_name, "relative_path": result.get("relative_path")},
+                        "artifact_type": artifact_type or "file",
+                        "path": artifact_path,
+                        "summary": f"{agent_id} created {result.get('relative_path') or artifact_path}",
+                        "metadata": {"tool": tool_name, "relative_path": result.get("relative_path"), "mime_type": result.get("mime_type")},
+                        "created_at": now_iso(),
+                    },
+                )
+                previous = self.repo.query_all(
+                    "artifact_versions",
+                    "WHERE session_id = ? AND path = ? ORDER BY version DESC LIMIT 1",
+                    (session_id, artifact_path),
+                )
+                self.repo.insert_generic(
+                    "artifact_versions",
+                    {
+                        "artifact_id": artifact_id,
+                        "session_id": session_id,
+                        "run_id": run_id,
+                        "version": int(previous[0]["version"]) + 1 if previous else 1,
+                        "path": artifact_path,
+                        "status": "active",
+                        "metadata": {"tool": tool_name, "mime_type": result.get("mime_type")},
                         "created_at": now_iso(),
                     },
                 )
@@ -230,17 +256,36 @@ class ToolGateway:
             )
         return result
 
-    def _preflight(self, agent_id: str, tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
+    def _preflight(self, run_id: str, session_id: str, agent_id: str, tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
         spec = self.registry.get(tool_name)
         if spec is None:
             return {"decision": "deny", "policy_id": "tool_registered", "reason": f"unknown tool {tool_name}"}
         allowed = self._allowed_tools()
-        if allowed is not None and tool_name not in allowed.get(agent_id, []):
+        session_grant = self.repo.query_all(
+            "session_tool_grants",
+            "WHERE session_id = ? AND agent_id = ? AND tool_id = ? AND status = 'active' LIMIT 1",
+            (session_id, agent_id, tool_name),
+        )
+        if allowed is not None and tool_name not in allowed.get(agent_id, []) and not session_grant:
             return {
                 "decision": "deny",
                 "policy_id": "agent_tool_allowlist",
                 "reason": f"agent {agent_id} is not allowed to call {tool_name}",
             }
+        # Each approval permits one attempt with the reviewed agent and arguments.
+        approved = self.repo.query_all(
+            "approvals",
+            "WHERE run_id = ? AND status = 'approved' ORDER BY decided_at DESC",
+            (run_id,),
+        )
+        consumed = {d.get("metadata", {}).get("approval_id") for d in self.repo.query_all(
+            "policy_decisions", "WHERE run_id = ? AND policy_id = 'approved_action'", (run_id,))}
+        for item in approved:
+            summary = item.get("action_summary") or {}
+            if (item["id"] not in consumed and item.get("requested_by") == agent_id
+                    and summary.get("tool") == tool_name and summary.get("args") == args):
+                return {"decision": "allow", "policy_id": "approved_action",
+                        "reason": "matching human approval is recorded", "metadata": {"approval_id": item["id"]}}
         if spec.category in {"write", "read"} and tool_name in {"file_write", "file_read"}:
             path = str(args.get("path", ""))
             if not is_workspace_relative_path(path):
@@ -255,6 +300,7 @@ class ToolGateway:
         if spec.requires_approval or spec.risk_level == "high":
             return {"decision": "ask", "policy_id": "risk_requires_approval", "reason": f"{tool_name} requires human approval"}
         return {"decision": "allow", "policy_id": "tool_governance", "reason": "tool call passed registry, allowlist and argument preflight"}
+
 
     def _allowed_tools(self) -> dict[str, list[str]] | None:
         if callable(self.allowed_tools_by_agent):

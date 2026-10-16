@@ -3,11 +3,11 @@ providers:
 - name: xingwan-gpt
   protocol: openai
   base_url: https://xingwan.store/v1
-  api_key: sk-JWsps7UnnnjrZuzudBdCCiw3utvoQBcfSWtpZr1CoOWPl1cv
+  api_key: null
   api_key_env: XINGWAN_API_KEY
   model: null
   models:
-  - name: gpt-5.5
+  - name: gpt-5.6-luna
     input_price_per_1k: 0.0
     output_price_per_1k: 0.0
   script: null
@@ -157,6 +157,34 @@ tools:
   - wttr.in
   allowed_paths: []
   config: {}
+- id: image_generate
+  name: Weather illustration generator
+  description: Generate a PNG illustration artifact from story and weather context.
+  category: write
+  executor: image_generate
+  input_schema:
+    type: object
+    properties:
+      name:
+        type: string
+      title:
+        type: string
+      weather:
+        type: string
+      caption:
+        type: string
+    required:
+    - title
+    - weather
+  output_schema: {}
+  risk_level: medium
+  sandbox: session_workspace
+  requires_approval: true
+  is_concurrency_safe: false
+  should_defer: false
+  allowed_domains: []
+  allowed_paths: []
+  config: {}
 skills:
 - id: writing.basic
   name: 基础写作
@@ -170,6 +198,18 @@ skills:
   - text.create
   - file.write
   risk_level: low
+  source: local
+  source_url: null
+  version: 1.0.0
+  trust_level: local
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: general
+  tags: []
 - id: review.basic
   name: 基础评审
   description: 读取并评审文本产物。
@@ -184,6 +224,18 @@ skills:
   - review.content
   - file.write
   risk_level: low
+  source: local
+  source_url: null
+  version: 1.0.0
+  trust_level: local
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: general
+  tags: []
 - id: repo.research
   name: 仓库研究
   description: 检索仓库文件并产出证据。
@@ -198,6 +250,638 @@ skills:
   - repo.search
   - repo.read
   risk_level: low
+  source: local
+  source_url: null
+  version: 1.0.0
+  trust_level: local
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: general
+  tags: []
+- id: repo.research.pro
+  name: Repository Research Pro
+  description: 先建立文件证据，再输出带引用的仓库分析。适合代码理解、影响面评估和审计准备。
+  prompt_body: ''
+  recommended_tools:
+  - repo_list
+  - repo_search
+  - repo_read
+  output_artifacts:
+  - research_notes
+  - evidence_report
+  capability_ids:
+  - repo.list
+  - repo.search
+  - repo.read
+  risk_level: low
+  source: open-source-catalog
+  source_url: null
+  version: 1.0.0
+  trust_level: reviewed
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: general
+  tags: []
+- id: review.code-governance
+  name: Code Governance Review
+  description: 从正确性、风险、权限和可回滚性检查代码变更，并形成审计友好的结论。
+  prompt_body: ''
+  recommended_tools:
+  - repo_search
+  - repo_read
+  - file_write
+  output_artifacts:
+  - review_report
+  capability_ids:
+  - repo.search
+  - repo.read
+  - review.policy
+  - file.write
+  risk_level: medium
+  source: open-source-catalog
+  source_url: null
+  version: 1.0.0
+  trust_level: community
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: general
+  tags: []
+- id: visual.data-chart
+  name: Data Chart
+  description: Convert structured data into a PNG chart with a caption and source
+    metadata.
+  prompt_body: ''
+  recommended_tools:
+  - matplotlib_chart
+  output_artifacts:
+  - session_artifact
+  capability_ids:
+  - visual.chart
+  - data.analysis
+  risk_level: medium
+  source: platform-pack
+  source_url: null
+  version: 1.0.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: visual
+  tags:
+  - chart
+  - png
+- id: office.pdf-report
+  name: PDF Report
+  description: Export a traceable report with source citations, findings and an appendix.
+  prompt_body: ''
+  recommended_tools:
+  - pdf_export
+  - pdf_validate
+  output_artifacts:
+  - session_artifact
+  capability_ids:
+  - office.pdf
+  risk_level: medium
+  source: platform-pack
+  source_url: null
+  version: 1.0.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: office
+  tags:
+  - pdf
+  - report
+- id: knowledge.evidence-search
+  name: Knowledge Evidence Search
+  description: 从项目知识库检索相关片段，要求输出来源、版本和证据引用。
+  prompt_body: ''
+  recommended_tools:
+  - repo_search
+  - repo_read
+  output_artifacts:
+  - citation_bundle
+  capability_ids:
+  - repo.search
+  - repo.read
+  risk_level: low
+  source: platform-catalog
+  source_url: null
+  version: 0.1.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: general
+  tags: []
+- id: task.plan-and-delegate
+  name: Task Plan and Delegate
+  description: 把用户任务拆成可观察的 DAG，并为每个节点声明 Agent、工具和产物契约。
+  prompt_body: ''
+  recommended_tools:
+  - repo_list
+  - repo_search
+  output_artifacts:
+  - task_plan
+  capability_ids:
+  - coordination.plan
+  - coordination.delegate
+  risk_level: medium
+  source: platform-catalog
+  source_url: null
+  version: 0.1.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: general
+  tags: []
+- id: visual.flowchart
+  name: Flowchart Builder
+  description: Turn a task plan into a Mermaid flowchart and a reviewable diagram
+    artifact.
+  prompt_body: ''
+  recommended_tools:
+  - mermaid_render
+  output_artifacts:
+  - session_artifact
+  capability_ids:
+  - visual.diagram
+  risk_level: medium
+  source: platform-pack
+  source_url: null
+  version: 1.0.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: visual
+  tags:
+  - diagram
+  - mermaid
+- id: office.excel-report
+  name: Excel Report
+  description: Build a workbook with typed columns, summary sheets, formulas and validation
+    notes.
+  prompt_body: ''
+  recommended_tools:
+  - spreadsheet_write
+  - spreadsheet_validate
+  output_artifacts:
+  - session_artifact
+  capability_ids:
+  - office.spreadsheet
+  - data.analysis
+  risk_level: medium
+  source: platform-pack
+  source_url: null
+  version: 1.0.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: office
+  tags:
+  - excel
+  - xlsx
+- id: office.word-brief
+  name: Word Brief
+  description: Create a structured Word brief with headings, tables, references and
+    an executive summary.
+  prompt_body: ''
+  recommended_tools:
+  - document_generate
+  output_artifacts:
+  - session_artifact
+  capability_ids:
+  - office.document
+  risk_level: medium
+  source: platform-pack
+  source_url: null
+  version: 1.0.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: office
+  tags:
+  - word
+  - docx
+- id: visual.image-brief
+  name: Image Brief
+  description: Prepare a structured image-generation brief with dimensions, style,
+    subject and safety constraints.
+  prompt_body: ''
+  recommended_tools:
+  - file_write
+  output_artifacts:
+  - session_artifact
+  capability_ids:
+  - visual.image_brief
+  risk_level: medium
+  source: platform-pack
+  source_url: null
+  version: 1.0.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: visual
+  tags:
+  - image
+  - brief
+- id: office.pptx-deck
+  name: Presentation Deck
+  description: Plan and generate a slide deck with title, agenda, evidence slides
+    and speaker notes.
+  prompt_body: ''
+  recommended_tools:
+  - pptx_generate
+  - pptx_validate
+  output_artifacts:
+  - session_artifact
+  capability_ids:
+  - office.presentation
+  risk_level: medium
+  source: platform-pack
+  source_url: null
+  version: 1.0.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: office
+  tags:
+  - pptx
+  - slides
+- id: visual.architecture
+  name: Architecture Diagram
+  description: Create an architecture view with services, data stores, boundaries
+    and evidence links.
+  prompt_body: ''
+  recommended_tools:
+  - mermaid_render
+  output_artifacts:
+  - session_artifact
+  capability_ids:
+  - visual.diagram
+  risk_level: medium
+  source: platform-pack
+  source_url: null
+  version: 1.0.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: visual
+  tags:
+  - architecture
+  - topology
+- id: research.web-evidence
+  name: Web Evidence Research
+  description: Collect web evidence, preserve URLs and produce a cited research memo.
+  prompt_body: ''
+  recommended_tools:
+  - http_get
+  - file_write
+  output_artifacts:
+  - session_artifact
+  capability_ids:
+  - research.web
+  - research.citations
+  risk_level: low
+  source: platform-pack
+  source_url: null
+  version: 1.0.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: research
+  tags:
+  - web
+  - evidence
+- id: engineering.api-design
+  name: API Design Review
+  description: Review an API contract for consistency, errors, authorization and observability.
+  prompt_body: ''
+  recommended_tools:
+  - repo_search
+  - repo_read
+  - file_write
+  output_artifacts:
+  - session_artifact
+  capability_ids:
+  - review.policy
+  - governance.trace
+  risk_level: low
+  source: platform-pack
+  source_url: null
+  version: 1.0.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: engineering
+  tags:
+  - api
+  - design
+- id: coordination.team-brief
+  name: Team Brief
+  description: Give a leader a concise Session brief with assignments, handoffs, risks
+    and acceptance criteria.
+  prompt_body: ''
+  recommended_tools:
+  - file_write
+  output_artifacts:
+  - session_artifact
+  capability_ids:
+  - coordination.plan
+  - coordination.delegate
+  risk_level: low
+  source: platform-pack
+  source_url: null
+  version: 1.0.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: coordination
+  tags:
+  - team
+  - leader
+- id: data.sqlite-analysis
+  name: SQLite Analysis
+  description: Query a Session knowledge database and return a reproducible result
+    table.
+  prompt_body: ''
+  recommended_tools:
+  - sqlite_query
+  - spreadsheet_write
+  output_artifacts:
+  - session_artifact
+  capability_ids:
+  - data.analysis
+  risk_level: low
+  source: platform-pack
+  source_url: null
+  version: 1.0.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: data
+  tags:
+  - sqlite
+  - query
+- id: data.csv-analysis
+  name: CSV Analysis
+  description: Inspect a CSV, calculate descriptive statistics and write an auditable
+    summary.
+  prompt_body: ''
+  recommended_tools:
+  - csv_analyze
+  - spreadsheet_write
+  output_artifacts:
+  - session_artifact
+  capability_ids:
+  - data.analysis
+  - office.spreadsheet
+  risk_level: low
+  source: platform-pack
+  source_url: null
+  version: 1.0.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: data
+  tags:
+  - csv
+  - statistics
+- id: research.citation-audit
+  name: Citation Audit
+  description: Check claims against source references and flag unsupported conclusions.
+  prompt_body: ''
+  recommended_tools:
+  - file_read
+  - file_write
+  output_artifacts:
+  - session_artifact
+  capability_ids:
+  - research.citations
+  - governance.trace
+  risk_level: low
+  source: platform-pack
+  source_url: null
+  version: 1.0.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: research
+  tags:
+  - citations
+  - audit
+- id: research.github-research
+  name: GitHub Repository Research
+  description: Inspect a GitHub repository and produce a commit-pinned technical brief.
+  prompt_body: ''
+  recommended_tools:
+  - http_get
+  - repo_search
+  - file_write
+  output_artifacts:
+  - session_artifact
+  capability_ids:
+  - research.web
+  - research.citations
+  risk_level: low
+  source: platform-pack
+  source_url: null
+  version: 1.0.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: research
+  tags:
+  - github
+  - repository
+- id: engineering.test-analysis
+  name: Test Analysis
+  description: Map changed behavior to tests, identify gaps and produce a prioritized
+    test plan.
+  prompt_body: ''
+  recommended_tools:
+  - repo_search
+  - repo_read
+  - file_write
+  output_artifacts:
+  - session_artifact
+  capability_ids:
+  - review.content
+  - governance.trace
+  risk_level: low
+  source: platform-pack
+  source_url: null
+  version: 1.0.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: engineering
+  tags:
+  - tests
+  - quality
+- id: engineering.dependency-audit
+  name: Dependency Audit
+  description: Inventory dependencies, licenses and upgrade risks with evidence.
+  prompt_body: ''
+  recommended_tools:
+  - repo_search
+  - file_write
+  output_artifacts:
+  - session_artifact
+  capability_ids:
+  - review.policy
+  - research.citations
+  risk_level: low
+  source: platform-pack
+  source_url: null
+  version: 1.0.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: engineering
+  tags:
+  - dependencies
+  - license
+- id: governance.trace-review
+  name: Trace Review
+  description: Summarize a Session trace by decision, tool, artifact, approval and
+    exception.
+  prompt_body: ''
+  recommended_tools:
+  - file_write
+  output_artifacts:
+  - session_artifact
+  capability_ids:
+  - governance.trace
+  risk_level: low
+  source: platform-pack
+  source_url: null
+  version: 1.0.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: governance
+  tags:
+  - trace
+  - audit
+- id: governance.incident-review
+  name: Incident Review
+  description: Turn failed or blocked Runs into a timeline, root-cause candidates
+    and follow-up actions.
+  prompt_body: ''
+  recommended_tools:
+  - file_read
+  - file_write
+  output_artifacts:
+  - session_artifact
+  capability_ids:
+  - governance.trace
+  - review.policy
+  risk_level: low
+  source: platform-pack
+  source_url: null
+  version: 1.0.0
+  trust_level: platform
+  install_mode: metadata_only
+  source_ref: null
+  content_hash: null
+  scan_status: unscanned
+  scan_findings: []
+  license: null
+  category: governance
+  tags:
+  - incident
+  - postmortem
 permissions:
   roles:
     admin:
@@ -236,7 +920,7 @@ agents:
 - id: coordinator
   name: 协调 Agent
   provider: xingwan-gpt
-  model: gpt-5.5
+  model: gpt-5.6-luna
   tools: []
   skills: []
   capabilities:
@@ -250,7 +934,7 @@ agents:
 - id: evidence
   name: 证据 Agent
   provider: xingwan-gpt
-  model: gpt-5.5
+  model: gpt-5.6-luna
   tools:
   - repo_search
   - repo_read
@@ -266,7 +950,7 @@ agents:
 - id: execution
   name: 执行 Agent
   provider: xingwan-gpt
-  model: gpt-5.5
+  model: gpt-5.6-luna
   tools:
   - local_command
   skills: []
@@ -279,7 +963,7 @@ agents:
 - id: policy_auditor
   name: 策略审计 Agent
   provider: xingwan-gpt
-  model: gpt-5.5
+  model: gpt-5.6-luna
   tools: []
   skills: []
   capabilities:
@@ -292,7 +976,7 @@ agents:
 - id: reviewer
   name: 评审 Agent
   provider: xingwan-gpt
-  model: gpt-5.5
+  model: gpt-5.6-luna
   tools: []
   skills: []
   capabilities:
@@ -305,9 +989,10 @@ agents:
 - id: story_writer
   name: 故事写作 Agent
   provider: xingwan-gpt
-  model: gpt-5.5
+  model: gpt-5.6-luna
   tools:
   - file_write
+  - image_generate
   skills: []
   capabilities: []
   sandbox: session_workspace
@@ -316,10 +1001,25 @@ agents:
   - require_approval_for_external_write
   system_prompt: 负责生成短篇故事、诗歌或报告，并把产物写入当前 Session 工作区。
   metadata: {}
+- id: visual_designer
+  name: Visual Designer Agent
+  provider: xingwan-gpt
+  model: gpt-5.6-luna
+  tools:
+  - image_generate
+  skills:
+  - visual.image-brief
+  capabilities:
+  - visual.image_brief
+  sandbox: session_workspace
+  policies:
+  - max_cost_per_run
+  system_prompt: Generate a reviewable image artifact for the current Session.
+  metadata: {}
 - id: story_reviewer
   name: 故事评价 Agent
   provider: xingwan-gpt
-  model: gpt-5.5
+  model: gpt-5.6-luna
   tools:
   - file_read
   - file_write
@@ -336,7 +1036,7 @@ agents:
 - id: weather_agent
   name: 天气查询 Agent
   provider: xingwan-gpt
-  model: gpt-5.5
+  model: gpt-5.6-luna
   tools:
   - weather_lookup
   skills: []

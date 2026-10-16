@@ -1,0 +1,23 @@
+
+providers:
+  - name: browser-fixture-only
+    protocol: openai
+    base_url: https://example.test/v1
+    model: fixture
+tools:
+  - id: file_write
+    name: Reviewed write
+    executor: file_write
+    category: write
+    requires_approval: true
+agents:
+  - id: coordinator
+    name: Leader
+    provider: browser-fixture-only
+    model: fixture
+    tools: [file_write, file_read]
+  - id: writer
+    name: Writer
+    provider: browser-fixture-only
+    model: fixture
+    tools: [file_write, file_read]

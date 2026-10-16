@@ -1,0 +1,10 @@
+
+providers:
+  - name: scripted
+    protocol: scripted
+    script: default
+agents:
+  - id: coordinator
+    name: Coordinator
+    provider: scripted
+    model: scripted

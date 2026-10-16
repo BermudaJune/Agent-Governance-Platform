@@ -1,0 +1,12 @@
+
+providers:
+  - name: local
+    protocol: openai
+    base_url: https://example.test/v1
+    api_key: secret
+    model: test-model
+agents:
+  - id: agent
+    name: Agent
+    provider: local
+    model: test-model

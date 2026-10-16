@@ -1,161 +1,445 @@
 environment: test
 providers:
-  - name: scripted-governance
-    protocol: scripted
-    script: default
-    models:
-      - name: scripted-governance-model
-        input_price_per_1k: 0.0
-        output_price_per_1k: 0.0
-
+- name: scripted-governance
+  protocol: scripted
+  base_url: null
+  api_key: null
+  api_key_env: null
+  model: null
+  models:
+  - name: scripted-governance-model
+    input_price_per_1k: 0.0
+    output_price_per_1k: 0.0
+  script: default
+mcp_servers: []
 sandboxes:
-  - id: readonly
-    runtime: local_readonly
-    filesystem: read_only
-    network: disabled
-    allowed_commands: ["rg", "python"]
-    root: "."
-  - id: session_workspace
-    runtime: local_workspace
-    filesystem: session_write
-    network: disabled
-    allowed_commands: ["rg", "python"]
-    root: "."
-
+- id: readonly
+  runtime: local_readonly
+  filesystem: read_only
+  network: disabled
+  allowed_commands:
+  - rg
+  - python
+  root: .
+  timeout_seconds: 20
+- id: session_workspace
+  runtime: local_workspace
+  filesystem: session_write
+  network: disabled
+  allowed_commands:
+  - rg
+  - python
+  root: .
+  timeout_seconds: 20
 policies:
-  - id: max_cost_per_run
-    type: budget
-    max_usd: 1.0
-  - id: require_approval_for_write
-    type: hitl
-    when:
-      tool: file_write
-
+- id: max_cost_per_run
+  type: budget
+  max_usd: 1.0
+  when: {}
+- id: require_approval_for_write
+  type: hitl
+  max_usd: null
+  when:
+    tool: file_write
 capabilities:
-  - id: coordination.plan
-    name: Task Planning
-    description: Break a user task into auditable sub tasks.
-    category: coordination
-    suitable_roles: ["coordinator"]
-  - id: coordination.delegate
-    name: Task Delegation
-    description: Assign work to other agents and collect results.
-    category: coordination
-    suitable_roles: ["coordinator"]
-  - id: text.create
-    name: Text Creation
-    description: Create prose, poems, reports or other text artifacts.
-    category: write
-    suitable_roles: ["writer"]
-  - id: review.content
-    name: Content Review
-    description: Review generated content or reports.
-    category: review
-    suitable_roles: ["reviewer"]
-  - id: review.policy
-    name: Policy Review
-    description: Review permission, budget, HITL and audit concerns.
-    category: review
-    suitable_roles: ["auditor"]
-  - id: external.weather
-    name: Weather Lookup
-    description: Query weather from an external provider.
-    category: network
-    risk_level: medium
-    suitable_roles: ["researcher"]
-
+- id: coordination.plan
+  name: Task Planning
+  description: Break a user task into auditable sub tasks.
+  category: coordination
+  input_schema: {}
+  output_schema: {}
+  risk_level: low
+  required_tools: []
+  optional_tools: []
+  required_permissions: []
+  sandbox: null
+  requires_approval: false
+  suitable_roles:
+  - coordinator
+- id: coordination.delegate
+  name: Task Delegation
+  description: Assign work to other agents and collect results.
+  category: coordination
+  input_schema: {}
+  output_schema: {}
+  risk_level: low
+  required_tools: []
+  optional_tools: []
+  required_permissions: []
+  sandbox: null
+  requires_approval: false
+  suitable_roles:
+  - coordinator
+- id: text.create
+  name: Text Creation
+  description: Create prose, poems, reports or other text artifacts.
+  category: write
+  input_schema: {}
+  output_schema: {}
+  risk_level: low
+  required_tools: []
+  optional_tools: []
+  required_permissions: []
+  sandbox: null
+  requires_approval: false
+  suitable_roles:
+  - writer
+- id: review.content
+  name: Content Review
+  description: Review generated content or reports.
+  category: review
+  input_schema: {}
+  output_schema: {}
+  risk_level: low
+  required_tools: []
+  optional_tools: []
+  required_permissions: []
+  sandbox: null
+  requires_approval: false
+  suitable_roles:
+  - reviewer
+- id: review.policy
+  name: Policy Review
+  description: Review permission, budget, HITL and audit concerns.
+  category: review
+  input_schema: {}
+  output_schema: {}
+  risk_level: low
+  required_tools: []
+  optional_tools: []
+  required_permissions: []
+  sandbox: null
+  requires_approval: false
+  suitable_roles:
+  - auditor
+- id: external.weather
+  name: Weather Lookup
+  description: Query weather from an external provider.
+  category: network
+  input_schema: {}
+  output_schema: {}
+  risk_level: medium
+  required_tools: []
+  optional_tools: []
+  required_permissions: []
+  sandbox: null
+  requires_approval: false
+  suitable_roles:
+  - researcher
+tools: []
 skills:
-  - id: writing.basic
-    name: Basic Writing
-    description: Create short text artifacts.
-    recommended_tools: ["file_write"]
-    output_artifacts: ["markdown"]
-    capability_ids: ["text.create", "file.write"]
-  - id: review.basic
-    name: Basic Review
-    description: Read and review text artifacts.
-    recommended_tools: ["file_read", "file_write"]
-    output_artifacts: ["markdown"]
-    capability_ids: ["file.read", "review.content", "file.write"]
-  - id: repo.research
-    name: Repository Research
-    description: Inspect repository files and produce evidence.
-    recommended_tools: ["repo_list", "repo_search", "repo_read"]
-    capability_ids: ["repo.list", "repo.search", "repo.read"]
-
+- id: writing.basic
+  name: Basic Writing
+  description: Create short text artifacts.
+  prompt_body: ''
+  recommended_tools:
+  - file_write
+  output_artifacts:
+  - markdown
+  capability_ids:
+  - text.create
+  - file.write
+  risk_level: low
+  source: local
+  source_url: null
+  version: 1.0.0
+  trust_level: local
+  install_mode: metadata_only
+- id: review.basic
+  name: Basic Review
+  description: Read and review text artifacts.
+  prompt_body: ''
+  recommended_tools:
+  - file_read
+  - file_write
+  output_artifacts:
+  - markdown
+  capability_ids:
+  - file.read
+  - review.content
+  - file.write
+  risk_level: low
+  source: local
+  source_url: null
+  version: 1.0.0
+  trust_level: local
+  install_mode: metadata_only
+- id: repo.research
+  name: Repository Research
+  description: Inspect repository files and produce evidence.
+  prompt_body: ''
+  recommended_tools:
+  - repo_list
+  - repo_search
+  - repo_read
+  output_artifacts: []
+  capability_ids:
+  - repo.list
+  - repo.search
+  - repo.read
+  risk_level: low
+  source: local
+  source_url: null
+  version: 1.0.0
+  trust_level: local
+  install_mode: metadata_only
+- id: repo.research.pro
+  name: Repository Research Pro
+  description: 先建立文件证据，再输出带引用的仓库分析。适合代码理解、影响面评估和审计准备。
+  prompt_body: ''
+  recommended_tools:
+  - repo_list
+  - repo_search
+  - repo_read
+  output_artifacts:
+  - research_notes
+  - evidence_report
+  capability_ids:
+  - repo.list
+  - repo.search
+  - repo.read
+  risk_level: low
+  source: open-source-catalog
+  source_url: null
+  version: 1.0.0
+  trust_level: reviewed
+  install_mode: metadata_only
+- id: task.plan-and-delegate
+  name: Task Plan and Delegate
+  description: 把用户任务拆成可观察的 DAG，并为每个节点声明 Agent、工具和产物契约。
+  prompt_body: ''
+  recommended_tools:
+  - repo_list
+  - repo_search
+  output_artifacts:
+  - task_plan
+  capability_ids:
+  - coordination.plan
+  - coordination.delegate
+  risk_level: medium
+  source: platform-catalog
+  source_url: null
+  version: 0.1.0
+  trust_level: platform
+  install_mode: metadata_only
+- id: review.code-governance
+  name: Code Governance Review
+  description: 从正确性、风险、权限和可回滚性检查代码变更，并形成审计友好的结论。
+  prompt_body: ''
+  recommended_tools:
+  - repo_search
+  - repo_read
+  - file_write
+  output_artifacts:
+  - review_report
+  capability_ids:
+  - repo.search
+  - repo.read
+  - review.policy
+  - file.write
+  risk_level: medium
+  source: open-source-catalog
+  source_url: null
+  version: 1.0.0
+  trust_level: community
+  install_mode: metadata_only
+- id: knowledge.evidence-search
+  name: Knowledge Evidence Search
+  description: 从项目知识库检索相关片段，要求输出来源、版本和证据引用。
+  prompt_body: ''
+  recommended_tools:
+  - repo_search
+  - repo_read
+  output_artifacts:
+  - citation_bundle
+  capability_ids:
+  - repo.search
+  - repo.read
+  risk_level: low
+  source: platform-catalog
+  source_url: null
+  version: 0.1.0
+  trust_level: platform
+  install_mode: metadata_only
 permissions:
   roles:
     admin:
-      allow: ["*"]
+      allow:
+      - '*'
     operator:
-      allow: ["run.create", "run.cancel", "approval.decide", "agent.view", "run.view", "audit.view"]
+      allow:
+      - run.create
+      - run.cancel
+      - approval.decide
+      - agent.view
+      - run.view
+      - audit.view
     auditor:
-      allow: ["agent.view", "run.view", "audit.view", "policy.view"]
+      allow:
+      - agent.view
+      - run.view
+      - audit.view
+      - policy.view
   delegation:
     coordinator:
-      can_delegate_to: ["evidence", "execution", "policy_auditor", "reviewer"]
-      allowed_actions: ["tool.call", "sandbox.execute.readonly", "report.review"]
-
+      can_delegate_to:
+      - evidence
+      - execution
+      - policy_auditor
+      - reviewer
+      allowed_actions:
+      - tool.call
+      - sandbox.execute.readonly
+      - report.review
 agents:
-  - id: coordinator
-    name: Coordinator Agent
-    provider: scripted-governance
-    model: scripted-governance-model
-    capabilities: ["coordination.plan", "coordination.delegate"]
-    policies: ["max_cost_per_run"]
-  - id: evidence
-    name: Evidence Agent
-    provider: scripted-governance
-    model: scripted-governance-model
-    tools: ["repo_search", "repo_read", "repo_list"]
-    skills: ["repo.research"]
-    sandbox: readonly
-    policies: ["max_cost_per_run"]
-  - id: execution
-    name: Execution Agent
-    provider: scripted-governance
-    model: scripted-governance-model
-    tools: ["local_command"]
-    sandbox: readonly
-    policies: ["max_cost_per_run", "require_approval_for_write"]
-  - id: policy_auditor
-    name: Policy Auditor Agent
-    provider: scripted-governance
-    model: scripted-governance-model
-    capabilities: ["review.policy"]
-    policies: ["max_cost_per_run"]
-  - id: reviewer
-    name: Reviewer Agent
-    provider: scripted-governance
-    model: scripted-governance-model
-    capabilities: ["review.content"]
-    policies: ["max_cost_per_run"]
-  - id: story_writer
-    name: Story Writer Agent
-    provider: scripted-governance
-    model: scripted-governance-model
-    tools: ["file_write"]
-    skills: ["writing.basic"]
-    capabilities: ["coordination.plan", "coordination.delegate"]
-    sandbox: session_workspace
-    policies: ["max_cost_per_run", "require_approval_for_write"]
-  - id: story_reviewer
-    name: Story Reviewer Agent
-    provider: scripted-governance
-    model: scripted-governance-model
-    tools: ["file_read", "file_write"]
-    skills: ["review.basic"]
-    sandbox: session_workspace
-    policies: ["max_cost_per_run", "require_approval_for_write"]
-
+- id: coordinator
+  name: Coordinator Agent
+  provider: scripted-governance
+  model: scripted-governance-model
+  tools: []
+  skills: []
+  capabilities:
+  - coordination.plan
+  - coordination.delegate
+  sandbox: null
+  policies:
+  - max_cost_per_run
+  system_prompt: ''
+  metadata: {}
+- id: evidence
+  name: Evidence Agent
+  provider: scripted-governance
+  model: scripted-governance-model
+  tools:
+  - repo_search
+  - repo_read
+  - repo_list
+  skills:
+  - repo.research
+  capabilities: []
+  sandbox: readonly
+  policies:
+  - max_cost_per_run
+  system_prompt: ''
+  metadata: {}
+- id: execution
+  name: Execution Agent
+  provider: scripted-governance
+  model: scripted-governance-model
+  tools:
+  - local_command
+  skills: []
+  capabilities: []
+  sandbox: readonly
+  policies:
+  - max_cost_per_run
+  - require_approval_for_write
+  system_prompt: ''
+  metadata: {}
+- id: policy_auditor
+  name: Policy Auditor Agent
+  provider: scripted-governance
+  model: scripted-governance-model
+  tools: []
+  skills: []
+  capabilities:
+  - review.policy
+  sandbox: null
+  policies:
+  - max_cost_per_run
+  system_prompt: ''
+  metadata: {}
+- id: reviewer
+  name: Reviewer Agent
+  provider: scripted-governance
+  model: scripted-governance-model
+  tools: []
+  skills: []
+  capabilities:
+  - review.content
+  sandbox: null
+  policies:
+  - max_cost_per_run
+  system_prompt: ''
+  metadata: {}
+- id: story_writer
+  name: Story Writer Agent
+  provider: scripted-governance
+  model: scripted-governance-model
+  tools:
+  - file_write
+  skills:
+  - writing.basic
+  capabilities:
+  - coordination.plan
+  - coordination.delegate
+  sandbox: session_workspace
+  policies:
+  - max_cost_per_run
+  - require_approval_for_write
+  system_prompt: ''
+  metadata: {}
+- id: story_reviewer
+  name: Story Reviewer Agent
+  provider: scripted-governance
+  model: scripted-governance-model
+  tools:
+  - file_read
+  - file_write
+  skills:
+  - review.basic
+  capabilities: []
+  sandbox: session_workspace
+  policies:
+  - max_cost_per_run
+  - require_approval_for_write
+  system_prompt: ''
+  metadata: {}
 teams:
-  - id: governance_review_team
-    leader: coordinator
-    members: ["evidence", "execution", "policy_auditor", "reviewer"]
-    collaboration_strategy: leader_worker
-    capabilities: ["coordination.plan", "coordination.delegate", "repo.search", "repo.read", "command.local_readonly", "review.policy", "review.content"]
-  - id: story_team
-    leader: story_writer
-    members: ["story_writer", "story_reviewer"]
-    collaboration_strategy: sequential_artifact_review
-    capabilities: ["coordination.plan", "coordination.delegate", "text.create", "file.write", "file.read", "review.content"]
+- id: governance_review_team
+  leader: coordinator
+  members:
+  - evidence
+  - execution
+  - policy_auditor
+  - reviewer
+  collaboration_strategy: leader_worker
+  capabilities:
+  - coordination.plan
+  - coordination.delegate
+  - repo.search
+  - repo.read
+  - command.local_readonly
+  - review.policy
+  - review.content
+  description: ''
+  version: 1
+- id: story_team
+  leader: story_writer
+  members:
+  - story_writer
+  - story_reviewer
+  collaboration_strategy: sequential_artifact_review
+  capabilities:
+  - coordination.plan
+  - coordination.delegate
+  - text.create
+  - file.write
+  - file.read
+  - review.content
+  description: ''
+  version: 1
+storage:
+  relational:
+    backend: sqlite
+    url: sqlite:///./data/agentgov.db
+  event_bus:
+    backend: memory
+  cache:
+    backend: db
+  object_store:
+    backend: local
+    root: ./data/objects
+  vector_store:
+    backend: sqlite_fts
+budgets: {}

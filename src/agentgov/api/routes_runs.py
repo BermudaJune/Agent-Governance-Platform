@@ -74,4 +74,13 @@ def router(repo: Repository, run_service: RunService | None = None) -> APIRouter
         except KeyError as exc:
             raise HTTPException(status_code=404, detail=f"unknown run: {run_id}") from exc
 
+    @r.post("/{run_id}/retry")
+    def retry_run(run_id: str, req: RunControlRequest):
+        if run_service is None:
+            return {"status": "unavailable", "reason": "run service is not configured"}
+        try:
+            return run_service.retry_run(run_id, req.execute_now)
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=f"unknown run: {run_id}") from exc
+
     return r

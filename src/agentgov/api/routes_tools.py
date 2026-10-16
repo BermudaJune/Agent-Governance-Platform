@@ -51,7 +51,11 @@ def router(config_path: str, registry: ToolRegistry) -> APIRouter:
 
 
 def _validate_executor(tool: ToolConfig) -> None:
-    allowed = {"builtin", "repo_search", "repo_read", "repo_list", "file_read", "file_write", "local_command", "weather_lookup", "http_get"}
+    allowed = {
+        "builtin", "repo_search", "repo_read", "repo_list", "file_read", "file_write", "local_command", "weather_lookup", "http_get",
+        "mermaid_render", "matplotlib_chart", "spreadsheet_write", "spreadsheet_validate", "pptx_generate", "pptx_validate",
+        "document_generate", "pdf_export", "pdf_validate", "csv_analyze", "sqlite_query",
+    }
     if tool.executor not in allowed:
         raise HTTPException(status_code=400, detail=f"unsupported executor: {tool.executor}")
     if tool.executor == "http_get" and not tool.allowed_domains:

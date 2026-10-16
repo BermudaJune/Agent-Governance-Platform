@@ -13,11 +13,28 @@ python -m agentgov.cli db init --database sqlite:///./data/agentgov.db
 python -m agentgov.cli qualification run --config config/examples/qualification.yaml
 ```
 
-For a real model smoke test, set the key referenced by `config/examples/local.openai.yaml`.
+For the real OpenAI-compatible provider, keep the key out of YAML and set the environment variable referenced by `config/examples/local.openai.yaml`.
 
 ```powershell
-$env:XINGWAN_API_KEY="..."
+$env:XINGWAN_API_KEY="your-xingwan-key"
+python -m agentgov.cli api --host 127.0.0.1 --port 8001 --config config/examples/local.openai.yaml
 ```
+
+The current provider is `xingwan-gpt`, using `https://xingwan.store/v1` and model `gpt-5.5`. The web console reads provider status through `/config`, but never receives the secret. Restart the backend after changing provider or model settings.
+
+## Skills and artifact tools
+
+The resource center exposes platform skill packs for visual diagrams, charts, PowerPoint, Excel, Word, PDF, research, data analysis, engineering review, and governance. A Skill is a versioned workflow description; a Tool is the governed executor that can read data or write a Session artifact.
+
+Local skills are discovered from `.agentgov/skills`, `.mewcode/skills`, `~/.agentgov/skills`, and `~/.mewcode/skills`. Public GitHub repositories can be scanned with `POST /skills/github/scan`; the importer pins a commit SHA, hashes the prompt, and marks suspicious content for review. It does not execute repository code.
+
+Install the optional artifact libraries when you want actual Office/PDF output:
+
+```powershell
+python -m pip install -e ".[artifacts]"
+```
+
+The new executors are `mermaid_render`, `matplotlib_chart`, `spreadsheet_write`, `pptx_generate`, `document_generate`, `pdf_export`, `csv_analyze`, and `sqlite_query`. Generated files stay under `data/workspaces/<session_id>/artifacts` and are recorded as evidence and artifacts.
 
 ## Core Concepts
 

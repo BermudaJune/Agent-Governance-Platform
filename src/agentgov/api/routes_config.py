@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -22,10 +23,20 @@ def router(config_path: str) -> APIRouter:
     @r.get("")
     def get_config():
         cfg = load_config(path)
+        data = cfg.model_dump(mode="json")
+        for provider in data.get("providers", []):
+            configured = bool(provider.get("api_key"))
+            if provider.get("api_key"):
+                provider["api_key"] = None
+            if provider.get("api_key_env"):
+                configured = configured or bool(os.getenv(provider["api_key_env"]))
+            provider["api_key_configured"] = configured
+            models = provider.get("models") or []
+            provider["effective_model"] = provider.get("model") or (models[0].get("name") if models else None)
         return {
             "path": str(path),
-            "config": cfg.model_dump(mode="json"),
-            "note": "Provider changes require backend restart. Local configs may use api_key or api_key_env.",
+            "config": data,
+            "note": "Provider changes require backend restart. Use api_key_env; the API never returns api_key to the browser.",
         }
 
     @r.post("/validate")

@@ -1,0 +1,23 @@
+
+providers:
+  - name: real
+    protocol: openai
+    base_url: https://example.test/v1
+    api_key_env: TEST_LEADER_KEY
+    model: test
+tools:
+  - id: file_write
+    name: Reviewed file write
+    executor: file_write
+    category: write
+    requires_approval: true
+agents:
+  - id: coordinator
+    name: Leader
+    provider: real
+    model: test
+    tools: [file_write, file_read]
+  - id: researcher
+    name: Researcher
+    provider: real
+    model: test

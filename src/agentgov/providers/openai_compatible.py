@@ -44,7 +44,29 @@ class OpenAICompatibleProvider:
             json=body,
             timeout=self.timeout,
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            detail = ""
+            try:
+                error = response.json().get("error")
+                if isinstance(error, dict):
+                    detail = str(error.get("message") or "")
+                elif isinstance(error, str):
+                    detail = error
+            except (ValueError, AttributeError):
+                pass
+            detail = detail.replace(api_key, "[REDACTED]")[:500]
+            guidance = {
+                401: "密钥认证失败，请检查供应商密钥。",
+                403: "当前密钥或账户无权访问此模型，请在供应商控制台授权该模型或选择可用模型。",
+                429: "供应商限流或额度不足，请检查额度后重试。",
+                503: "供应商暂时无法提供此模型，请确认模型可用性后重试。",
+            }.get(response.status_code, "请检查供应商响应后重试。")
+            raise RuntimeError(
+                f"模型 {self.model} 调用失败（HTTP {response.status_code}）。{guidance}"
+                + (f" 供应商信息：{detail}" if detail else "")
+            ) from exc
         data = response.json()
         message = data["choices"][0]["message"]
         content = message.get("content") or ""

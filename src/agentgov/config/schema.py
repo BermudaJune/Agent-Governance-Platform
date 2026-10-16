@@ -24,6 +24,17 @@ BUILTIN_CAPABILITY_IDS = {
     "review.policy",
     "text.create",
     "external.weather",
+    "visual.chart",
+    "visual.diagram",
+    "visual.image_brief",
+    "office.spreadsheet",
+    "office.presentation",
+    "office.document",
+    "office.pdf",
+    "research.web",
+    "research.citations",
+    "data.analysis",
+    "governance.trace",
 }
 
 
@@ -154,6 +165,18 @@ class SkillConfig(BaseModel):
     output_artifacts: list[str] = Field(default_factory=list)
     capability_ids: list[str] = Field(default_factory=list)
     risk_level: str = "low"
+    source: str = "local"
+    source_url: str | None = None
+    version: str = "1.0.0"
+    trust_level: str = "local"
+    install_mode: str = "metadata_only"
+    source_ref: str | None = None
+    content_hash: str | None = None
+    scan_status: str = "unscanned"
+    scan_findings: list[str] = Field(default_factory=list)
+    license: str | None = None
+    category: str = "general"
+    tags: list[str] = Field(default_factory=list)
 
 
 class RelationalConfig(BaseModel):
@@ -200,6 +223,17 @@ class PlatformConfig(BaseModel):
             "file_write",
             "local_command",
             "weather_lookup",
+            "mermaid_render",
+            "matplotlib_chart",
+            "spreadsheet_write",
+            "spreadsheet_validate",
+            "pptx_generate",
+            "pptx_validate",
+            "document_generate",
+            "pdf_export",
+            "pdf_validate",
+            "csv_analyze",
+            "sqlite_query",
         }
 
         for agent in self.agents:

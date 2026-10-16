@@ -1,0 +1,54 @@
+
+> dev
+> vite --host 127.0.0.1 --port 5174
+
+
+  VITE v6.4.4  ready in 303 ms
+
+  ➜  Local:   http://127.0.0.1:5174/
+00:54:11 [vite] (client) hmr update /src/App.tsx
+00:56:21 [vite] vite.config.ts changed, restarting server...
+00:56:21 [vite] server restarted.
+01:07:28 [vite] vite.config.ts changed, restarting server...
+01:07:28 [vite] server restarted.
+15:39:49 [vite] vite.config.ts changed, restarting server...
+15:39:50 [vite] server restarted.
+20:23:42 [vite] (client) hmr update /src/App.tsx
+21:18:19 [vite] (client) hmr update /src/App.tsx
+21:18:42 [vite] (client) hmr update /src/App.tsx
+21:20:14 [vite] (client) hmr update /src/App.tsx
+21:22:10 [vite] (client) hmr update /src/styles.css
+22:33:15 [vite] (client) hmr update /src/App.tsx
+22:35:34 [vite] (client) hmr update /src/App.tsx
+23:20:55 [vite] (client) hmr update /src/App.tsx
+23:21:10 [vite] (client) hmr update /src/App.tsx
+09:50:30 [vite] (client) hmr update /src/App.tsx
+09:51:00 [vite] (client) hmr update /src/styles.css
+09:51:18 [vite] vite.config.ts changed, restarting server...
+09:51:18 [vite] (client) hmr update /src/App.tsx
+09:51:18 [vite] (client) hmr update /src/styles.css
+09:51:18 [vite] server restarted.
+09:58:35 [vite] vite.config.ts changed, restarting server...
+09:58:35 [vite] server restarted.
+09:59:29 [vite] (client) hmr update /src/SessionLearning.tsx
+09:59:45 [vite] (client) hmr update /src/App.tsx
+10:01:42 [vite] (client) hmr update /src/styles.css
+17:36:51 [vite] (client) hmr update /src/App.tsx
+17:36:51 [vite] (client) hmr update /src/styles.css
+17:39:15 [vite] (client) hmr update /src/styles.css
+17:40:13 [vite] (client) hmr update /src/styles.css
+17:59:50 [vite] vite.config.ts changed, restarting server...
+17:59:50 [vite] server restarted.
+18:39:14 [vite] vite.config.ts changed, restarting server...
+18:39:14 [vite] server restarted.
+18:44:05 [vite] (client) hmr update /src/App.tsx
+18:44:36 [vite] (client) hmr update /src/App.tsx
+18:45:00 [vite] (client) hmr update /src/App.tsx
+18:45:00 [vite] (client) hmr update /src/styles.css
+18:56:04 [vite] (client) hmr update /src/App.tsx
+18:56:05 [vite] (client) hmr update /src/styles.css
+19:00:22 [vite] (client) hmr update /src/App.tsx
+19:08:18 [vite] (client) hmr update /src/App.tsx
+19:33:18 [vite] (client) hmr update /src/App.tsx
+20:06:00 [vite] (client) hmr update /src/App.tsx
+20:06:00 [vite] (client) hmr update /src/styles.css

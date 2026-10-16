@@ -71,6 +71,54 @@ CREATE TABLE IF NOT EXISTS runs (
   FOREIGN KEY(session_id) REFERENCES sessions(id)
 );
 
+CREATE TABLE IF NOT EXISTS session_knowledge_sources (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  source_type TEXT NOT NULL,
+  name TEXT NOT NULL,
+  locator TEXT,
+  content TEXT NOT NULL DEFAULT '',
+  trust_level TEXT NOT NULL DEFAULT 'session_input',
+  required_citation INTEGER NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'active',
+  metadata TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY(session_id) REFERENCES sessions(id)
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_access_grants (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  plan_id TEXT,
+  task_node_id TEXT,
+  run_id TEXT,
+  agent_id TEXT NOT NULL,
+  source_ids TEXT NOT NULL DEFAULT '[]',
+  access_mode TEXT NOT NULL DEFAULT 'read',
+  granted_by TEXT NOT NULL,
+  rationale TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'planned',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  FOREIGN KEY(session_id) REFERENCES sessions(id)
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_access_events (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  run_id TEXT,
+  agent_id TEXT NOT NULL,
+  source_id TEXT,
+  action TEXT NOT NULL,
+  query TEXT,
+  result_refs TEXT NOT NULL DEFAULT '[]',
+  decision TEXT NOT NULL,
+  reason TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(session_id) REFERENCES sessions(id)
+);
+
 CREATE TABLE IF NOT EXISTS run_steps (
   id TEXT PRIMARY KEY,
   run_id TEXT NOT NULL,
@@ -296,6 +344,84 @@ CREATE TABLE IF NOT EXISTS collaboration_tasks (
   completed_at TEXT
 );
 
+CREATE TABLE IF NOT EXISTS session_plans (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  version INTEGER NOT NULL DEFAULT 1,
+  requirement_id TEXT,
+  parent_plan_id TEXT,
+  change_reason TEXT NOT NULL DEFAULT '',
+  approval_status TEXT NOT NULL DEFAULT 'pending',
+  objective TEXT NOT NULL,
+  strategy TEXT NOT NULL,
+  planner_agent_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  raw_plan TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS session_requirements (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  objective TEXT NOT NULL,
+  contract TEXT NOT NULL DEFAULT '{}',
+  source TEXT NOT NULL DEFAULT 'user',
+  parent_id TEXT,
+  change_reason TEXT NOT NULL DEFAULT '',
+  status TEXT NOT NULL DEFAULT 'active',
+  created_by TEXT NOT NULL DEFAULT 'operator',
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(session_id) REFERENCES sessions(id)
+);
+
+CREATE TABLE IF NOT EXISTS session_feedback (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  target_type TEXT NOT NULL,
+  target_id TEXT,
+  message TEXT NOT NULL,
+  requested_action TEXT NOT NULL DEFAULT 'replan',
+  impact TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'submitted',
+  requirement_id TEXT,
+  plan_id TEXT,
+  created_by TEXT NOT NULL DEFAULT 'operator',
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(session_id) REFERENCES sessions(id)
+);
+
+CREATE TABLE IF NOT EXISTS task_nodes (
+  id TEXT PRIMARY KEY,
+  plan_id TEXT NOT NULL,
+  session_id TEXT NOT NULL,
+  node_key TEXT NOT NULL,
+  assigned_agent_id TEXT NOT NULL,
+  run_id TEXT,
+  node_type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  instruction TEXT NOT NULL,
+  required_capabilities TEXT NOT NULL DEFAULT '[]',
+  required_tools TEXT NOT NULL DEFAULT '[]',
+  input_refs TEXT NOT NULL DEFAULT '[]',
+  output_contract TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  completed_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS task_edges (
+  id TEXT PRIMARY KEY,
+  plan_id TEXT NOT NULL,
+  source_node_id TEXT NOT NULL,
+  target_node_id TEXT NOT NULL,
+  edge_type TEXT NOT NULL,
+  payload_key TEXT,
+  created_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS run_queue (
   id TEXT PRIMARY KEY,
   run_id TEXT NOT NULL,
@@ -341,6 +467,25 @@ CREATE TABLE IF NOT EXISTS experience_candidates (
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS session_cases (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  owner_id TEXT NOT NULL,
+  snapshot_key TEXT NOT NULL,
+  outcome TEXT NOT NULL,
+  reviewer_id TEXT NOT NULL,
+  notes TEXT NOT NULL DEFAULT '',
+  satisfaction INTEGER,
+  reusable_guidance TEXT NOT NULL DEFAULT '',
+  share_scope TEXT NOT NULL DEFAULT 'private',
+  tags TEXT NOT NULL DEFAULT '[]',
+  case_data TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  UNIQUE(session_id, snapshot_key),
+  FOREIGN KEY(session_id) REFERENCES sessions(id)
+);
+CREATE INDEX IF NOT EXISTS idx_session_cases_owner ON session_cases(owner_id, share_scope, created_at);
 
 CREATE TABLE IF NOT EXISTS agent_health_snapshots (
   agent_id TEXT PRIMARY KEY,
@@ -424,7 +569,120 @@ CREATE TABLE IF NOT EXISTS artifacts (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS artifact_versions (
+  id TEXT PRIMARY KEY,
+  artifact_id TEXT NOT NULL,
+  session_id TEXT NOT NULL,
+  run_id TEXT NOT NULL,
+  version INTEGER NOT NULL,
+  path TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  metadata TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(artifact_id) REFERENCES artifacts(id),
+  FOREIGN KEY(session_id) REFERENCES sessions(id)
+);
+
+CREATE TABLE IF NOT EXISTS session_agents (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  agent_id TEXT NOT NULL,
+  parent_agent_id TEXT,
+  role TEXT NOT NULL,
+  origin TEXT NOT NULL,
+  depth INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'active',
+  spec_snapshot TEXT NOT NULL DEFAULT '{}',
+  created_by TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  retired_at TEXT,
+  FOREIGN KEY(session_id) REFERENCES sessions(id)
+);
+
+CREATE TABLE IF NOT EXISTS delegation_requests (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  run_id TEXT,
+  requester_agent_id TEXT NOT NULL,
+  parent_agent_id TEXT NOT NULL,
+  requested_agent_id TEXT,
+  requested_role TEXT NOT NULL,
+  objective TEXT NOT NULL,
+  requested_skills TEXT NOT NULL DEFAULT '[]',
+  requested_tools TEXT NOT NULL DEFAULT '[]',
+  budget_usd REAL NOT NULL DEFAULT 0,
+  risk_level TEXT NOT NULL DEFAULT 'low',
+  status TEXT NOT NULL DEFAULT 'pending',
+  approval_id TEXT,
+  reason TEXT,
+  created_at TEXT NOT NULL,
+  decided_at TEXT,
+  FOREIGN KEY(session_id) REFERENCES sessions(id)
+);
+
+CREATE TABLE IF NOT EXISTS session_skill_grants (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  agent_id TEXT NOT NULL,
+  skill_id TEXT NOT NULL,
+  version TEXT NOT NULL,
+  source TEXT NOT NULL,
+  granted_by TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(session_id) REFERENCES sessions(id)
+);
+
+CREATE TABLE IF NOT EXISTS session_tool_grants (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  agent_id TEXT NOT NULL,
+  tool_id TEXT NOT NULL,
+  granted_by TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(session_id) REFERENCES sessions(id)
+);
+
+CREATE TABLE IF NOT EXISTS agent_lifecycle_events (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  agent_id TEXT NOT NULL,
+  event_type TEXT NOT NULL,
+  actor_id TEXT NOT NULL,
+  payload TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(session_id) REFERENCES sessions(id)
+);
+
+CREATE TABLE IF NOT EXISTS session_checkpoints (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  run_id TEXT,
+  label TEXT NOT NULL,
+  reason TEXT NOT NULL DEFAULT '',
+  snapshot TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(session_id) REFERENCES sessions(id)
+);
+
+CREATE TABLE IF NOT EXISTS rollback_events (
+  id TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  checkpoint_id TEXT NOT NULL,
+  actor_id TEXT NOT NULL,
+  reason TEXT NOT NULL DEFAULT '',
+  created_at TEXT NOT NULL,
+  FOREIGN KEY(session_id) REFERENCES sessions(id),
+  FOREIGN KEY(checkpoint_id) REFERENCES session_checkpoints(id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_runs_session_created ON runs(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_knowledge_sources_session ON session_knowledge_sources(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_knowledge_grants_session ON knowledge_access_grants(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_knowledge_grants_run ON knowledge_access_grants(run_id);
+CREATE INDEX IF NOT EXISTS idx_knowledge_events_session ON knowledge_access_events(session_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_runs_parent ON runs(parent_run_id);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);
 CREATE INDEX IF NOT EXISTS idx_run_steps_run_seq ON run_steps(run_id, seq);
@@ -435,20 +693,44 @@ CREATE INDEX IF NOT EXISTS idx_observations_run_created ON observations(run_id, 
 CREATE INDEX IF NOT EXISTS idx_approvals_run_status ON approvals(run_id, status);
 CREATE INDEX IF NOT EXISTS idx_span_trace_run ON span_records(trace_id, run_id);
 CREATE INDEX IF NOT EXISTS idx_messages_trace_created ON agent_messages(trace_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_session_plans_session ON session_plans(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_session_requirements_session ON session_requirements(session_id, version);
+CREATE INDEX IF NOT EXISTS idx_session_feedback_session ON session_feedback(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_task_nodes_plan_status ON task_nodes(plan_id, status);
+CREATE INDEX IF NOT EXISTS idx_task_nodes_run ON task_nodes(run_id);
+CREATE INDEX IF NOT EXISTS idx_task_edges_target ON task_edges(target_node_id);
 CREATE INDEX IF NOT EXISTS idx_queue_status_priority ON run_queue(status, priority, available_at);
 CREATE INDEX IF NOT EXISTS idx_leases_run_until ON run_leases(run_id, lease_until);
 CREATE INDEX IF NOT EXISTS idx_matching_session ON team_matching_reports(session_id, created_at);
 CREATE INDEX IF NOT EXISTS idx_team_templates_status ON team_templates(status, updated_at);
 CREATE INDEX IF NOT EXISTS idx_team_snapshots_session ON session_team_snapshots(session_id);
 CREATE INDEX IF NOT EXISTS idx_artifacts_session ON artifacts(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_artifact_versions_path ON artifact_versions(session_id, path, version);
+CREATE INDEX IF NOT EXISTS idx_session_agents_session ON session_agents(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_delegation_requests_session ON delegation_requests(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_delegation_requests_status ON delegation_requests(status, created_at);
+CREATE INDEX IF NOT EXISTS idx_skill_grants_session ON session_skill_grants(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_tool_grants_session ON session_tool_grants(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_lifecycle_events_session ON agent_lifecycle_events(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_checkpoints_session ON session_checkpoints(session_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_rollbacks_session ON rollback_events(session_id, created_at);
 """
 
 
 MIGRATIONS_SQL = [
+    "ALTER TABLE session_feedback ADD COLUMN reason_type TEXT NOT NULL DEFAULT 'unspecified'",
+    "ALTER TABLE experience_candidates ADD COLUMN source_case_id TEXT",
+    "ALTER TABLE experience_candidates ADD COLUMN target_type TEXT NOT NULL DEFAULT 'unspecified'",
+    "ALTER TABLE experience_candidates ADD COLUMN operation TEXT NOT NULL DEFAULT 'add'",
     "ALTER TABLE run_queue ADD COLUMN session_id TEXT",
     "ALTER TABLE run_queue ADD COLUMN lease_owner TEXT",
     "ALTER TABLE run_queue ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE run_queue ADD COLUMN last_error TEXT",
+    "ALTER TABLE session_plans ADD COLUMN version INTEGER NOT NULL DEFAULT 1",
+    "ALTER TABLE session_plans ADD COLUMN requirement_id TEXT",
+    "ALTER TABLE session_plans ADD COLUMN parent_plan_id TEXT",
+    "ALTER TABLE session_plans ADD COLUMN change_reason TEXT NOT NULL DEFAULT ''",
+    "ALTER TABLE session_plans ADD COLUMN approval_status TEXT NOT NULL DEFAULT 'pending'",
 ]
 
 

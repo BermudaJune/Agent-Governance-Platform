@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from agentgov.capabilities.registry import CapabilityRegistry
 from agentgov.capabilities.requirements import RequirementAnalyzer
 from agentgov.config.loader import load_config
+from agentgov.knowledge.models import KnowledgePolicy, KnowledgeSourceInput
 from agentgov.runtime.run_service import RunService
+from agentgov.runtime.dynamic_governance import DynamicGovernanceService
 from agentgov.storage.repositories import Repository
 from agentgov.teams.matching import TeamMatcher
 from agentgov.teams.snapshots import TeamSnapshotService
@@ -20,6 +22,20 @@ class DispatchTaskRequest(BaseModel):
     team_id: str | None = None
     execute_now: bool = True
     execute_mode: str | None = None
+    knowledge_sources: list[KnowledgeSourceInput] = Field(default_factory=list)
+    knowledge_policy: KnowledgePolicy = Field(default_factory=KnowledgePolicy)
+
+
+class DispatchLeaderTaskRequest(BaseModel):
+    title: str = "交给 Leader 的治理任务"
+    owner_id: str = "operator"
+    leader_id: str
+    input_summary: str
+    execute_now: bool = False
+    knowledge_sources: list[KnowledgeSourceInput] = Field(default_factory=list)
+    knowledge_policy: KnowledgePolicy = Field(default_factory=KnowledgePolicy)
+    requested_skills: list[str] = Field(default_factory=list)
+    requested_tools: list[str] = Field(default_factory=list)
 
 
 class DispatchTeamTaskRequest(BaseModel):
@@ -32,6 +48,8 @@ class DispatchTeamTaskRequest(BaseModel):
     execute_mode: str | None = None
     use_llm_matching: bool = False
     force: bool = False
+    knowledge_sources: list[KnowledgeSourceInput] = Field(default_factory=list)
+    knowledge_policy: KnowledgePolicy = Field(default_factory=KnowledgePolicy)
 
 
 class DispatchAdHocTeamTaskRequest(BaseModel):
@@ -45,6 +63,8 @@ class DispatchAdHocTeamTaskRequest(BaseModel):
     execute_mode: str | None = None
     use_llm_matching: bool = False
     force: bool = False
+    knowledge_sources: list[KnowledgeSourceInput] = Field(default_factory=list)
+    knowledge_policy: KnowledgePolicy = Field(default_factory=KnowledgePolicy)
 
 
 class StoryDemoRequest(BaseModel):
@@ -68,6 +88,79 @@ def router(
     analyzer = RequirementAnalyzer()
     matcher = TeamMatcher(registry) if registry else None
     snapshots = TeamSnapshotService(repo, registry) if repo and registry else None
+    governance = DynamicGovernanceService(repo, config_path) if repo else None
+
+    @r.post("/dispatch-leader")
+    def dispatch_leader(req: DispatchLeaderTaskRequest):
+        cfg = load_config(config_path)
+        leader = next((agent for agent in cfg.agents if agent.id == req.leader_id), None)
+        if leader is None:
+            raise HTTPException(status_code=404, detail=f"unknown leader: {req.leader_id}")
+        if run_service.leader_workflow:
+            return run_service.leader_workflow.dispatch(req)
+        requirement = analyzer.analyze(req.input_summary)
+        members = _select_leader_members(cfg, req.leader_id, requirement.required_capabilities, requirement.required_roles)
+        result = run_service.create_team_task(
+            title=req.title,
+            owner_id=req.owner_id,
+            team_id=f"leader:{req.leader_id}",
+            leader=req.leader_id,
+            members=members,
+            input_summary=req.input_summary,
+            strategy="leader_worker",
+            # Capability requests must be evaluated before any Run can execute.
+            execute_now=False,
+            require_plan_approval=True,
+            knowledge_sources=[item.model_dump() for item in req.knowledge_sources],
+            knowledge_policy=req.knowledge_policy.model_dump(),
+        )
+        result["leader_plan"] = {
+            "required_capabilities": requirement.required_capabilities,
+            "required_roles": requirement.required_roles,
+            "selected_agents": members,
+            "delegation_mode": "Leader initial plan; further expansion is Session-governed",
+        }
+        if governance:
+            governance.ensure_root(result["session_id"])
+            requests = []
+            if req.requested_skills or req.requested_tools:
+                requests.append(
+                    governance.create_delegation(
+                        result["session_id"],
+                        {
+                            "parent_agent_id": req.leader_id,
+                            "requester_agent_id": req.owner_id,
+                            "requested_agent_id": req.leader_id,
+                            "requested_role": "leader_capabilities",
+                            "objective": "Enable capabilities selected during task preflight",
+                            "requested_skills": req.requested_skills,
+                            "requested_tools": req.requested_tools,
+                            "auto_approve": True,
+                        },
+                    )
+                )
+            result["capability_requests"] = requests
+            pending_approval = any(item.get("approval_id") for item in requests)
+            if pending_approval:
+                repo.update_session_status(result["session_id"], "awaiting_approval", "Leader capability request is waiting for human approval")
+                result["status"] = "awaiting_approval"
+                return result
+        return result
+
+    def _select_leader_members(cfg, leader_id: str, required_capabilities: list[str], required_roles: list[str]) -> list[str]:
+        required = set(required_capabilities)
+        role_tokens = {item.lower() for item in required_roles if item.lower() != "coordinator"}
+        scored: list[tuple[int, str]] = []
+        for agent in cfg.agents:
+            if agent.id == leader_id:
+                continue
+            text = f"{agent.id} {agent.name}".lower()
+            overlap = len(required.intersection(set(agent.capabilities)))
+            role_match = sum(1 for token in role_tokens if token in text)
+            if overlap or role_match:
+                scored.append((overlap * 10 + role_match * 3, agent.id))
+        scored.sort(key=lambda item: (-item[0], item[1]))
+        return [leader_id, *[agent_id for _, agent_id in scored[:4]]]
 
     @r.post("/dispatch")
     def dispatch(req: DispatchTaskRequest):
@@ -77,12 +170,16 @@ def router(
             owner_id=req.owner_id,
             root_agent_id=req.agent_id,
             team_id=req.team_id,
+            objective=req.input_summary,
+            knowledge_sources=[item.model_dump() for item in req.knowledge_sources],
+            knowledge_policy=req.knowledge_policy.model_dump(),
         )
         run = run_service.create_run(
             session_id=session.id,
             agent_id=req.agent_id,
             input_summary=req.input_summary,
         )
+        run_service.grant_direct_session_knowledge(session.id, run.id, req.agent_id)
         if mode == "sync":
             result = run_service.execute(run.id)
         elif mode == "enqueue":
@@ -118,10 +215,12 @@ def router(
             input_summary=req.input_summary,
             strategy=req.strategy or team.collaboration_strategy,
             execute_now=mode == "sync",
+            knowledge_sources=[item.model_dump() for item in req.knowledge_sources],
+            knowledge_policy=req.knowledge_policy.model_dump(),
         )
         _attach_matching_and_snapshot(result, match_payload, team.leader, team.members, req.strategy or team.collaboration_strategy)
         if mode == "enqueue":
-            result["queue"] = [run_service.enqueue_run(run_id) for run_id in result["run_ids"]]
+            result["queue"] = run_service.enqueue_session_ready_runs(result["session_id"])
         result["execute_mode"] = mode
         result["matching"] = match_payload.get("report")
         return result
@@ -150,10 +249,12 @@ def router(
             input_summary=req.input_summary,
             strategy=req.strategy,
             execute_now=mode == "sync",
+            knowledge_sources=[item.model_dump() for item in req.knowledge_sources],
+            knowledge_policy=req.knowledge_policy.model_dump(),
         )
         _attach_matching_and_snapshot(result, match_payload, req.leader, members, req.strategy)
         if mode == "enqueue":
-            result["queue"] = [run_service.enqueue_run(run_id) for run_id in result["run_ids"]]
+            result["queue"] = run_service.enqueue_session_ready_runs(result["session_id"])
         result["execute_mode"] = mode
         result["matching"] = match_payload.get("report")
         return result

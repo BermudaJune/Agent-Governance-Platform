@@ -3,19 +3,23 @@ from __future__ import annotations
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
-from agentgov.api import routes_agents, routes_approvals, routes_config, routes_dashboard, routes_events, routes_runs, routes_sessions, routes_tasks, routes_teams, routes_tools
+from agentgov.api import routes_agents, routes_approvals, routes_config, routes_dashboard, routes_events, routes_governance, routes_knowledge, routes_runs, routes_sessions, routes_skills, routes_tasks, routes_teams, routes_tools
+from agentgov.api import routes_memory
 from agentgov.budget.service import BudgetService
 from agentgov.capabilities.registry import CapabilityRegistry
 from agentgov.config.loader import load_config
 from agentgov.event_stream.stream import EventStream
 from agentgov.gateway.model import ModelGateway
+from agentgov.gateway.skill import SkillGateway
 from agentgov.gateway.tool import ToolGateway
 from agentgov.gateway.tool_registry import ToolRegistry
 from agentgov.providers.local_repo_tools import LocalRepoTools
 from agentgov.providers.openai_compatible import OpenAICompatibleProvider
 from agentgov.providers.scripted_model import ScriptedModelProvider
+from agentgov.planning.planner import RuleBasedSessionPlanner
 from agentgov.runtime.agent_loop import AgentLoop
 from agentgov.runtime.run_service import RunService
+from agentgov.runtime.leader_workflow import LeaderWorkflowService
 from agentgov.sandbox.local_readonly import LocalReadOnlySandboxRuntime
 from agentgov.sandbox.service import SandboxService
 from agentgov.scheduler.queue import RunQueue
@@ -72,8 +76,11 @@ def create_app(
         tool_registry,
         allowed_tools_by_agent=lambda: {agent.id: agent.tools for agent in load_config(config_path).agents},
     )
+    skill_gateway = SkillGateway(repo, events, capability_registry, config_path=config_path)
     run_queue = RunQueue(repo)
-    run_service = RunService(repo, events, AgentLoop(model_gateway, tool_gateway), run_queue)
+    run_service = RunService(repo, events, AgentLoop(model_gateway, tool_gateway, skill_gateway), run_queue, RuleBasedSessionPlanner(cfg))
+    if provider_cfg.protocol.value == "openai":
+        run_service.leader_workflow = LeaderWorkflowService(run_service, config_path)
     worker = RunWorker(run_service, run_queue, events)
     app = FastAPI(title="Agent Governance Platform", version="0.1.0", default_response_class=Utf8JSONResponse)
 
@@ -94,13 +101,17 @@ def create_app(
 
     app.include_router(routes_agents.router(config_path))
     app.include_router(routes_config.router(config_path))
-    app.include_router(routes_sessions.router(repo, run_service))
+    app.include_router(routes_sessions.router(repo, run_service, config_path, workspace_root=repo_tools.root))
+    app.include_router(routes_governance.router(repo, config_path, run_service))
+    app.include_router(routes_knowledge.router(repo))
+    app.include_router(routes_memory.router(repo))
     app.include_router(routes_tasks.router(run_service, config_path, repo, capability_registry))
     app.include_router(routes_runs.router(repo, run_service))
-    app.include_router(routes_approvals.router(repo))
+    app.include_router(routes_approvals.router(repo, run_service, config_path))
     app.include_router(routes_dashboard.router(repo, config_path))
     app.include_router(routes_teams.router(repo, capability_registry))
     app.include_router(routes_tools.router(config_path, tool_registry))
+    app.include_router(routes_skills.router(config_path))
     app.include_router(routes_events.router(repo))
 
     @app.post("/worker/tick")

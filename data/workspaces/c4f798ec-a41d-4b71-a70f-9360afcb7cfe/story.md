@@ -1,0 +1,1 @@
+The lighthouse went dark. Lin lit a match, revealing the missing keeper beside her. He had returned to warn her: the light had been guiding ships toward the reef. Together they turned it inland.

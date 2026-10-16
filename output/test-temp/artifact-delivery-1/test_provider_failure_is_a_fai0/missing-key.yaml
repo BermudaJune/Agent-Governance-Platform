@@ -1,0 +1,12 @@
+
+providers:
+  - name: missing-key
+    protocol: openai
+    base_url: https://example.test/v1
+    api_key_env: XINGWAN_API_KEY
+    model: test-model
+agents:
+  - id: coordinator
+    name: Coordinator
+    provider: missing-key
+    model: test-model

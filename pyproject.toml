@@ -21,6 +21,15 @@ dependencies = [
 [project.scripts]
 agentgov = "agentgov.cli:app"
 
+[project.optional-dependencies]
+artifacts = [
+  "matplotlib>=3.8",
+  "openpyxl>=3.1",
+  "python-pptx>=0.6.23",
+  "python-docx>=1.1",
+  "reportlab>=4.0",
+]
+
 [tool.setuptools.packages.find]
 where = ["src"]
 

@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from agentgov.config.schema import PlatformConfig, ToolConfig
 from agentgov.providers.local_repo_tools import LocalRepoTools
+from agentgov.providers import artifact_tools
 from agentgov.sandbox.service import SandboxService
 
 
@@ -104,6 +105,32 @@ class ToolRegistry:
             return self._weather_lookup(args)
         if executor == "http_get":
             return self._http_get(spec, args)
+        if executor == "mermaid_render":
+            return artifact_tools.render_mermaid(self.repo_tools, ctx.session_id, args)
+        if executor == "matplotlib_chart":
+            return artifact_tools.render_chart(self.repo_tools, ctx.session_id, args)
+        if executor == "image_generate":
+            return artifact_tools.generate_image(self.repo_tools, ctx.session_id, args)
+        if executor == "image_search":
+            return self._image_search(args)
+        if executor == "spreadsheet_write":
+            return artifact_tools.write_spreadsheet(self.repo_tools, ctx.session_id, args)
+        if executor == "spreadsheet_validate":
+            return artifact_tools.validate_artifact(self.repo_tools, ctx.session_id, args)
+        if executor == "pptx_generate":
+            return artifact_tools.generate_presentation(self.repo_tools, ctx.session_id, args)
+        if executor == "pptx_validate":
+            return artifact_tools.validate_artifact(self.repo_tools, ctx.session_id, args)
+        if executor == "document_generate":
+            return artifact_tools.generate_document(self.repo_tools, ctx.session_id, args)
+        if executor == "pdf_export":
+            return artifact_tools.export_pdf(self.repo_tools, ctx.session_id, args)
+        if executor == "pdf_validate":
+            return artifact_tools.validate_artifact(self.repo_tools, ctx.session_id, args)
+        if executor == "csv_analyze":
+            return artifact_tools.analyze_csv(self.repo_tools, ctx.session_id, args)
+        if executor == "sqlite_query":
+            return artifact_tools.query_sqlite(self.repo_tools, ctx.session_id, args)
         return {"status": "failed", "error": f"unknown executor {executor}"}
 
     def _weather_lookup(self, args: dict[str, Any]) -> dict[str, Any]:
@@ -126,6 +153,47 @@ class ToolRegistry:
             return {"status": "completed", "weather": weather, "source": "wttr.in"}
         except Exception as exc:
             return {"status": "failed", "error": str(exc), "source": "wttr.in"}
+
+    def _image_search(self, args: dict[str, Any]) -> dict[str, Any]:
+        query = str(args.get("query") or args.get("keywords") or "").strip()
+        if not query:
+            return {"status": "failed", "error": "image search requires query"}
+        try:
+            response = httpx.get(
+                "https://commons.wikimedia.org/w/api.php",
+                params={
+                    "action": "query",
+                    "generator": "search",
+                    "gsrsearch": query,
+                    "gsrnamespace": 6,
+                    "gsrlimit": min(max(int(args.get("limit", 5)), 1), 10),
+                    "prop": "imageinfo|info",
+                    "iiprop": "url|mime|size|extmetadata",
+                    "format": "json",
+                    "formatversion": "2",
+                },
+                headers={"User-Agent": "agentgov-image-search/0.1"},
+                timeout=12,
+            )
+            response.raise_for_status()
+            pages = response.json().get("query", {}).get("pages", [])
+            results = []
+            for page in pages:
+                info = (page.get("imageinfo") or [{}])[0]
+                metadata = info.get("extmetadata") or {}
+                results.append({
+                    "title": page.get("title"),
+                    "url": info.get("thumburl") or info.get("url"),
+                    "source_url": f"https://commons.wikimedia.org/wiki/{str(page.get('title', '')).replace(' ', '_')}",
+                    "mime": info.get("mime"),
+                    "width": info.get("width"),
+                    "height": info.get("height"),
+                    "license": (metadata.get("LicenseShortName") or {}).get("value"),
+                    "artist": (metadata.get("Artist") or {}).get("value"),
+                })
+            return {"status": "completed", "query": query, "source": "Wikimedia Commons", "results": results}
+        except Exception as exc:
+            return {"status": "failed", "error": str(exc), "source": "Wikimedia Commons", "query": query}
 
     def _http_get(self, spec: ToolSpec, args: dict[str, Any]) -> dict[str, Any]:
         url = str(args.get("url") or spec.config.get("url") or "")
@@ -252,6 +320,137 @@ def builtin_tool_specs() -> list[ToolSpec]:
                 "properties": {"location": {"type": "string", "description": "城市或地区，例如 Beijing、Shanghai"}},
                 "required": ["location"],
             },
+            is_concurrency_safe=True,
+        ),
+        ToolSpec(
+            id="mermaid_render",
+            name="Mermaid diagram artifact",
+            description="Write a Mermaid source diagram and a browser preview into the current Session workspace.",
+            category="write",
+            executor="mermaid_render",
+            risk_level="medium",
+            requires_approval=True,
+            sandbox="session_workspace",
+            input_schema={"type": "object", "properties": {"name": {"type": "string"}, "source": {"type": "string"}}, "required": ["source"]},
+        ),
+        ToolSpec(
+            id="matplotlib_chart",
+            name="PNG chart generator",
+            description="Render labels and numeric values as a PNG artifact with matplotlib.",
+            category="write",
+            executor="matplotlib_chart",
+            risk_level="medium",
+            requires_approval=True,
+            sandbox="session_workspace",
+            input_schema={"type": "object", "properties": {"name": {"type": "string"}, "title": {"type": "string"}, "chart_type": {"type": "string", "enum": ["bar", "line"]}, "labels": {"type": "array", "items": {"type": "string"}}, "values": {"type": "array", "items": {"type": "number"}}}, "required": ["labels", "values"]},
+        ),
+        ToolSpec(
+            id="image_generate",
+            name="Weather illustration generator",
+            description="Generate a PNG illustration artifact from story title, weather facts and caption.",
+            category="write",
+            executor="image_generate",
+            risk_level="medium",
+            requires_approval=True,
+            sandbox="session_workspace",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "title": {"type": "string"},
+                    "weather": {"type": "string"},
+                    "caption": {"type": "string"},
+                },
+                "required": ["title", "weather"],
+            },
+        ),
+        ToolSpec(
+            id="spreadsheet_write",
+            name="Excel workbook generator",
+            description="Create a typed XLSX workbook from sheet headers and rows in the Session workspace.",
+            category="write",
+            executor="spreadsheet_write",
+            risk_level="medium",
+            requires_approval=True,
+            sandbox="session_workspace",
+            input_schema={"type": "object", "properties": {"name": {"type": "string"}, "sheets": {"type": "object"}}, "required": ["sheets"]},
+        ),
+        ToolSpec(
+            id="spreadsheet_validate",
+            name="Excel artifact validator",
+            description="Check that a generated workbook exists and is non-empty.",
+            category="read",
+            executor="spreadsheet_validate",
+            input_schema={"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
+            is_concurrency_safe=True,
+        ),
+        ToolSpec(
+            id="pptx_generate",
+            name="PowerPoint deck generator",
+            description="Generate a PPTX deck from slide titles and bullet points when python-pptx is installed.",
+            category="write",
+            executor="pptx_generate",
+            risk_level="medium",
+            requires_approval=True,
+            sandbox="session_workspace",
+            input_schema={"type": "object", "properties": {"name": {"type": "string"}, "slides": {"type": "array"}}, "required": ["slides"]},
+        ),
+        ToolSpec(
+            id="pptx_validate",
+            name="PowerPoint artifact validator",
+            description="Check that a generated presentation exists and is non-empty.",
+            category="read",
+            executor="pptx_validate",
+            input_schema={"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
+            is_concurrency_safe=True,
+        ),
+        ToolSpec(
+            id="document_generate",
+            name="Word document generator",
+            description="Generate a DOCX brief from a title and structured sections when python-docx is installed.",
+            category="write",
+            executor="document_generate",
+            risk_level="medium",
+            requires_approval=True,
+            sandbox="session_workspace",
+            input_schema={"type": "object", "properties": {"name": {"type": "string"}, "title": {"type": "string"}, "sections": {"type": "array"}}, "required": ["sections"]},
+        ),
+        ToolSpec(
+            id="pdf_export",
+            name="PDF report exporter",
+            description="Export plain report text into a PDF artifact when reportlab is installed.",
+            category="write",
+            executor="pdf_export",
+            risk_level="medium",
+            requires_approval=True,
+            sandbox="session_workspace",
+            input_schema={"type": "object", "properties": {"name": {"type": "string"}, "content": {"type": "string"}}, "required": ["content"]},
+        ),
+        ToolSpec(
+            id="pdf_validate",
+            name="PDF artifact validator",
+            description="Check that a generated PDF exists and is non-empty.",
+            category="read",
+            executor="pdf_validate",
+            input_schema={"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]},
+            is_concurrency_safe=True,
+        ),
+        ToolSpec(
+            id="csv_analyze",
+            name="CSV analyzer",
+            description="Calculate row counts and descriptive statistics for numeric CSV columns.",
+            category="read",
+            executor="csv_analyze",
+            input_schema={"type": "object", "properties": {"path": {"type": "string"}, "content": {"type": "string"}}, "oneOf": [{"required": ["path"]}, {"required": ["content"]}]},
+            is_concurrency_safe=True,
+        ),
+        ToolSpec(
+            id="sqlite_query",
+            name="SQLite read query",
+            description="Run a read-only SELECT query against a Session workspace SQLite database.",
+            category="read",
+            executor="sqlite_query",
+            input_schema={"type": "object", "properties": {"path": {"type": "string"}, "query": {"type": "string"}, "limit": {"type": "integer"}}, "required": ["query"]},
             is_concurrency_safe=True,
         ),
     ]
